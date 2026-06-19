@@ -37,16 +37,23 @@
     .m-put { background: #fd7e14; }
     .m-patch { background: #6f42c1; }
     .note { background: #fff8e6; border: 1px solid #f5d78e; padding: 0.85rem 1rem; border-radius: 8px; margin: 1rem 0; font-size: 14px; }
+    .note-new { background: #e8f5e9; border: 1px solid #a5d6a7; }
     .toc a { color: var(--accent); text-decoration: none; }
     .toc a:hover { text-decoration: underline; }
     .toc li { margin: 0.3rem 0; }
+    .badge-new { display: inline-block; font-size: 11px; font-weight: 600; color: #137333; background: #e6f4ea; padding: 0.1em 0.45em; border-radius: 4px; margin-left: 0.35em; vertical-align: middle; }
     footer { margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--border); color: var(--muted); font-size: 13px; }
+    ol.flow { font-size: 14px; }
+    ol.flow li { margin: 0.35rem 0; }
   </style>
 </head>
 <body>
   <div class="wrap">
     <h1>商户开放平台 HTTP 接入规范</h1>
-    <p class="meta">文档性质：对外通道说明 · 版本 API <code>/open/v1</code> · 本文仅描述公网可调用的 URL、头字段与 JSON 契约；字段以联调环境为准。</p>
+    <p class="meta">文档性质：对外通道说明 · 版本 API <code>/open/v1</code> · 更新日期 <strong>2026-06-18</strong><br />
+    本文仅描述公网可调用的 URL、头字段与 JSON 契约；字段以联调环境为准。响应 <code>data</code> 中含 <code>merchantCode</code>，与请求头 <code>X-Merchant-Code</code> 一致。</p>
+
+    <div class="note note-new"><strong>2026-06-18 更新：</strong>新增卡组只读/绑卡、Slash 消费约束目录、约束读取与用量投影；<code>GET /cards</code> 改为分页对象；开卡支持 <code>platformCardGroupId</code>；卡产品增加 <code>spendingConstraintCeilingJson</code>；多处 <code>memberUserId</code> 改为可选（省略时使用商户主会员）。</div>
 
     <nav class="toc" aria-label="目录">
       <h2 style="margin-top:0">目录</h2>
@@ -58,7 +65,8 @@
         <li><a href="#s5">幂等与写操作</a></li>
         <li><a href="#s6">接口一览</a></li>
         <li><a href="#s7">接口明细（路径、请求、响应 <code>data</code>）</a></li>
-        <li><a href="#s8">OpenAPI 机器可读描述</a></li>
+        <li><a href="#s9">典型对接流程</a></li>
+        <li><a href="#s10">OpenAPI 机器可读描述</a></li>
       </ol>
     </nav>
 
@@ -69,6 +77,7 @@
       <tr><td>数据格式</td><td>请求与响应体为 <code>application/json</code>（GET 无 body 除外）。</td></tr>
       <tr><td>基础路径</td><td>所有开放接口均位于 <code>{MERCHANT_API_BASE}/open/v1</code>。将 <code>{MERCHANT_API_BASE}</code> 替换为服务方提供的网关根地址（不含末尾斜杠）。</td></tr>
       <tr><td>示例</td><td><code>https://api.example.com/open/v1/wallets</code></td></tr>
+      <tr><td>终端用户</td><td>多数接口的 <code>memberUserId</code> <strong>可选</strong>；省略时使用商户<strong>主会员</strong>账号（与 member-portal 主账号一致）。</td></tr>
     </table>
 
     <h2 id="s2">2. 鉴权与请求签名</h2>
@@ -85,18 +94,18 @@
 Signature  = 小写十六进制( HMAC_SHA256( UTF8(SecretKey), HMAC输入 ) )</code></pre>
     <p><code>SecretKey</code> 为服务方在创建或轮换 API 凭据时向您下发的私钥；轮换宽限期内新旧密钥可能均可验签，以交付说明为准。</p>
     <h3>2.2 未开放路径</h3>
-    <p>若请求的 URL 不在当前版本开放清单内，即使签名正确，网关也可能返回 HTTP 401 及业务错误码（见下文），表示该路径不对商户开放。</p>
+    <p>若请求的 URL 不在当前版本开放清单内，即使签名正确，网关也可能返回 HTTP 401 及业务错误码 <code>40113</code>（<code>OPEN_API_PATH_NOT_ALLOWED</code>），表示该路径不对商户开放。</p>
 
     <h2 id="s3">3. 公共请求头</h2>
     <table>
       <tr><th>HTTP 头</th><th>必填</th><th>说明</th></tr>
       <tr><td><code>X-Access-Key-Id</code></td><td>除健康检查外必填</td><td>服务方分配的访问密钥 ID。</td></tr>
-      <tr><td><code>X-Merchant-Code</code></td><td>除健康检查外必填</td><td>您的商户编码，须与访问密钥所属商户一致（与商户门户展示一致）。</td></tr>
+      <tr><td><code>X-Merchant-Code</code></td><td>除健康检查外必填</td><td>您的商户编码，须与访问密钥所属商户一致。</td></tr>
       <tr><td><code>X-Vcc-Timestamp</code></td><td>除健康检查外必填</td><td>Unix 时间戳，单位为<strong>秒</strong>（UTC）；与网关时间偏差须在允许窗口内。</td></tr>
       <tr><td><code>X-Vcc-Signature</code></td><td>除健康检查外必填</td><td>第 2 节所述 HMAC-SHA256 签名（小写十六进制）。</td></tr>
-      <tr><td><code>Idempotency-Key</code></td><td>写操作必填</td><td>对 <code>POST</code>、<code>PUT</code>、<code>PATCH</code>、<code>DELETE</code> 必须携带；建议使用 UUID。相同商户下相同键重复提交应返回首次成功结果语义（以网关实现为准）。</td></tr>
+      <tr><td><code>Idempotency-Key</code></td><td>写操作必填</td><td>对 <code>POST</code>、<code>PUT</code>、<code>PATCH</code>、<code>DELETE</code> 必须携带；建议使用 UUID。</td></tr>
       <tr><td><code>Content-Type</code></td><td>有 body 时</td><td>使用 <code>application/json</code>。</td></tr>
-      <tr><td><code>X-Trace-Id</code></td><td>可选</td><td>您侧生成的追踪 ID；若提供，响应中可与网关生成的追踪信息一并用于排障。</td></tr>
+      <tr><td><code>X-Trace-Id</code></td><td>可选</td><td>您侧生成的追踪 ID，便于排障。</td></tr>
     </table>
 
     <h2 id="s4">4. 统一响应体（成功 / 失败）</h2>
@@ -108,6 +117,7 @@ Signature  = 小写十六进制( HMAC_SHA256( UTF8(SecretKey), HMAC输入 ) )</c
   "data": { ... 业务负载，随接口变化 ... },
   "traceId": "字符串，用于与服务方对账排障"
 }</code></pre>
+    <p><code>data</code> 可为 JSON 对象、数组，或含 <code>items</code> 的分页对象。</p>
     <h3>4.2 失败</h3>
     <p>HTTP 状态码可为 4xx / 5xx。<code>code</code> 为业务错误码字符串，<code>message</code> 为人类可读说明，<code>data</code> 多为 <code>null</code>，<code>traceId</code> 建议落库以便工单。</p>
     <table>
@@ -117,51 +127,55 @@ Signature  = 小写十六进制( HMAC_SHA256( UTF8(SecretKey), HMAC输入 ) )</c
       <tr><td>401</td><td><code>OPEN_API_SIGNATURE_INVALID</code></td><td>签名不匹配或缺少签名相关头。</td></tr>
       <tr><td>401</td><td><code>OPEN_API_CLOCK_SKEW</code></td><td>时间戳超出允许偏差。</td></tr>
       <tr><td>401</td><td><code>40113</code> / <code>OPEN_API_PATH_NOT_ALLOWED</code></td><td>路径未对当前版本开放。</td></tr>
-      <tr><td>403</td><td><code>FORBIDDEN</code></td><td>例如商户编码与密钥不匹配。</td></tr>
+      <tr><td>403</td><td><code>FORBIDDEN</code></td><td>商户编码与密钥不匹配、资源归属不符等。</td></tr>
       <tr><td>404</td><td>如 <code>CARD_NOT_FOUND</code>、<code>WALLET_NOT_FOUND</code></td><td>资源不存在或无权限访问。</td></tr>
       <tr><td>409</td><td>如 <code>OPEN_API_IDEMPOTENCY_CONFLICT</code></td><td>相同幂等键与已处理请求体不一致。</td></tr>
-      <tr><td>503</td><td>视配置</td><td>依赖组件不可用等（以响应体为准）。</td></tr>
+      <tr><td>502</td><td>如 <code>CHANNEL_TRANSACTION_FETCH_FAILED</code></td><td>渠道不可用（如 Slash 拉取约束失败且无本地快照）。</td></tr>
+      <tr><td>429 / 503</td><td>视配置</td><td>限流或依赖不可用。</td></tr>
     </table>
 
     <h2 id="s5">5. 幂等与写操作</h2>
-    <p>所有写操作（<code>POST</code> / <code>PUT</code> / <code>PATCH</code> / <code>DELETE</code>）必须携带 <code>Idempotency-Key</code>。网关可能按商户维度限流；部分敏感更新接口另有单独频率限制，超限返回 429 或 503 等，以实际响应为准。</p>
+    <p>所有写操作（<code>POST</code> / <code>PUT</code> / <code>PATCH</code> / <code>DELETE</code>）必须携带 <code>Idempotency-Key</code>。相同商户 + 相同键重复提交应返回首次成功语义。<strong>开卡任务</strong>当前按 Key 重放，不校验 body 哈希。网关按商户维度限流；<code>PATCH .../spending-constraint</code> 另有单独频率限制。</p>
 
     <h2 id="s6">6. 接口一览</h2>
     <table>
       <tr><th>方法</th><th>路径</th><th>摘要</th></tr>
       <tr><td>GET</td><td><code>/open/v1/health</code></td><td>健康检查（不要求签名头）</td></tr>
-      <tr><td>GET</td><td><code>/open/v1/card-products</code></td><td>已发布卡产品列表</td></tr>
-      <tr><td>GET</td><td><code>/open/v1/wallets</code></td><td>钱包列表</td></tr>
+      <tr><td>GET</td><td><code>/open/v1/card-products</code></td><td>已发布卡产品列表（含消费约束上限）</td></tr>
+      <tr><td>GET</td><td><code>/open/v1/card-groups</code></td><td>卡组列表（只读）<span class="badge-new">新</span></td></tr>
+      <tr><td>GET</td><td><code>/open/v1/wallets</code></td><td>钱包列表（MAIN + 卡组子池）</td></tr>
       <tr><td>GET</td><td><code>/open/v1/wallets/{id}</code></td><td>单个钱包余额</td></tr>
       <tr><td>GET</td><td><code>/open/v1/wallet-ledger</code></td><td>资金流水（分页）</td></tr>
-      <tr><td>POST</td><td><code>/open/v1/card-issuance-tasks</code></td><td>创建开卡任务</td></tr>
+      <tr><td>POST</td><td><code>/open/v1/card-issuance-tasks</code></td><td>创建开卡任务（可选归属卡组）</td></tr>
       <tr><td>GET</td><td><code>/open/v1/card-issuance-tasks/{id}</code></td><td>查询开卡任务</td></tr>
-      <tr><td>GET</td><td><code>/open/v1/cards</code></td><td>卡片列表</td></tr>
+      <tr><td>GET</td><td><code>/open/v1/cards</code></td><td>卡片列表（<strong>分页</strong>，可按卡组筛选）</td></tr>
       <tr><td>GET</td><td><code>/open/v1/cards/{id}</code></td><td>卡片详情（脱敏）</td></tr>
       <tr><td>GET</td><td><code>/open/v1/cards/{id}/sensitive</code></td><td>卡片敏感信息（完整 PAN/CVV）</td></tr>
+      <tr><td>GET</td><td><code>/open/v1/cards/{id}/spending-constraint</code></td><td>读取当前消费约束<span class="badge-new">新</span></td></tr>
+      <tr><td>GET</td><td><code>/open/v1/cards/{id}/spending-utilization</code></td><td>周期额度使用情况<span class="badge-new">新</span></td></tr>
+      <tr><td>PATCH</td><td><code>/open/v1/cards/{id}/card-group</code></td><td>开卡后挂入/移出卡组<span class="badge-new">新</span></td></tr>
       <tr><td>POST</td><td><code>/open/v1/cards/{id}/actions</code></td><td>卡片生命周期动作</td></tr>
       <tr><td>PATCH</td><td><code>/open/v1/cards/{id}/spending-constraint</code></td><td>卡消费控制部分更新</td></tr>
       <tr><td>GET</td><td><code>/open/v1/transactions</code></td><td>交易分页查询</td></tr>
-      <tr><td>GET</td><td><code>/open/v1/mcc</code></td><td>商户类别码（MCC）列表</td></tr>
+      <tr><td>GET</td><td><code>/open/v1/slash-catalog/merchant-categories</code></td><td>Slash 商户类别（推荐）<span class="badge-new">新</span></td></tr>
+      <tr><td>GET</td><td><code>/open/v1/slash-catalog/merchants</code></td><td>Slash 商户 ID 本地搜索<span class="badge-new">新</span></td></tr>
+      <tr><td>GET</td><td><code>/open/v1/spending-constraint/reference</code></td><td>消费约束静态参考（MCC/国家短列表）<span class="badge-new">新</span></td></tr>
+      <tr><td>GET</td><td><code>/open/v1/mcc</code></td><td>商户类别（<strong>别名</strong>，同 merchant-categories）</td></tr>
       <tr><td>GET</td><td><code>/open/v1/merchant-fee-rules/effective</code></td><td>查询当前生效手续费规则及试算</td></tr>
     </table>
-    <div class="note">说明：钱包充值、划出等动账接口<strong>不在</strong>本开放清单内；API 凭据的创建与轮换请使用<strong>商户门户</strong>或运营交付流程，不在 <code>/open/v1</code> 路径提供。<strong>持卡人（cardholder）相关路径不向对接方开放</strong>，亦不在本文档描述范围内。</div>
+    <div class="note">说明：<strong>不在</strong>本清单内的能力包括：钱包充值/提现/主↔卡组划款、卡组创建/删除、API 凭据管理、持卡人 CRUD、开卡 body 自定义 <code>spendingConstraintJson</code>。钱包动账与卡组创建请使用 <strong>member-portal</strong>；API 凭据请使用商户门户或运营交付流程。</div>
 
     <h2 id="s7">7. 接口明细（路径、请求、响应 <code>data</code>）</h2>
     <p>下列「响应 <code>data</code>」均指统一外壳内 <code>data</code> 字段的形状。</p>
 
-    <!-- Health -->
     <h3>7.1 健康检查</h3>
     <div class="endpoint"><span class="method m-get">GET</span> <code>{MERCHANT_API_BASE}/open/v1/health</code></div>
-    <h4>签名</h4><p>不要求 <code>X-Access-Key-Id</code>、<code>X-Merchant-Code</code>、<code>X-Vcc-Timestamp</code>、<code>X-Vcc-Signature</code>。</p>
-    <h4>请求体</h4><p>无。</p>
+    <h4>签名</h4><p>不要求签名相关 HTTP 头。</p>
     <h4>响应 <code>data</code></h4>
     <pre><code>{ "status": "UP" }</code></pre>
 
-    <!-- Card products -->
     <h3>7.2 已发布卡产品列表</h3>
     <div class="endpoint"><span class="method m-get">GET</span> <code>{MERCHANT_API_BASE}/open/v1/card-products</code></div>
-    <h4>查询参数</h4><p>无。</p>
     <h4>响应 <code>data</code></h4>
     <p>JSON 数组，每项字段示例：</p>
     <pre><code>[
@@ -171,42 +185,76 @@ Signature  = 小写十六进制( HMAC_SHA256( UTF8(SecretKey), HMAC输入 ) )</c
     "name": "产品名称",
     "currency": "USD",
     "published": true,
+    "memberVisibility": "可见性枚举",
+    "spendingConstraintCeilingJson": "{ ... 约束上限 JSON 字符串 ... }",
+    "merchantCode": "M..."
+  }
+]</code></pre>
+    <p><code>spendingConstraintCeilingJson</code>（可选）：卡产品配置的消费约束上限；调用 <code>PATCH .../spending-constraint</code> 时不得突破。</p>
+
+    <h3>7.3 卡组列表（只读）<span class="badge-new">新</span></h3>
+    <div class="endpoint"><span class="method m-get">GET</span> <code>{MERCHANT_API_BASE}/open/v1/card-groups</code></div>
+    <h4>查询参数</h4>
+    <table>
+      <tr><th>参数</th><th>必填</th><th>说明</th></tr>
+      <tr><td><code>memberUserId</code></td><td>否</td><td>省略 = 商户主会员。</td></tr>
+    </table>
+    <p>查询已在 member-portal 创建、可用于开卡/绑卡的<strong>自建 ACTIVE 卡组</strong>。不含创建/删除；子池余额见钱包接口。</p>
+    <h4>响应 <code>data</code></h4>
+    <pre><code>[
+  {
+    "id": 9,
+    "code": "M32_abc...",
+    "name": "测试",
+    "memberOwned": true,
+    "status": "ACTIVE",
     "merchantCode": "M..."
   }
 ]</code></pre>
 
-    <!-- Wallets -->
-    <h3>7.3 钱包列表</h3>
+    <h3>7.4 钱包列表</h3>
     <div class="endpoint"><span class="method m-get">GET</span> <code>{MERCHANT_API_BASE}/open/v1/wallets</code></div>
     <h4>查询参数</h4>
     <table>
       <tr><th>参数</th><th>必填</th><th>说明</th></tr>
-      <tr><td><code>memberUserId</code></td><td>否</td><td>若指定，仅返回该终端用户在本商户范围内的钱包；省略则返回本商户下全部钱包账户。</td></tr>
+      <tr><td><code>memberUserId</code></td><td>否</td><td>指定则返回该用户钱包；省略则返回商户下全部（<strong>1 个 MAIN + N 个 CARD_GROUP 子池</strong>）。</td></tr>
     </table>
     <h4>响应 <code>data</code></h4>
-    <p>JSON 数组，每项示例：</p>
-    <pre><code>{
-  "walletId": "123",
-  "currency": "USD",
-  "availableAmountMinor": 10000,
-  "availableAmount": "100.00",
-  "merchantCode": "M..."
-}</code></pre>
+    <pre><code>[
+  {
+    "walletId": "54",
+    "currency": "USD",
+    "availableAmountMinor": 12122144,
+    "availableAmount": "121221.44",
+    "cardGroupId": 0,
+    "walletRole": "MAIN",
+    "cardGroupName": null,
+    "merchantCode": "M..."
+  },
+  {
+    "walletId": "55",
+    "currency": "USD",
+    "availableAmountMinor": 100000,
+    "availableAmount": "1000.00",
+    "cardGroupId": 9,
+    "walletRole": "CARD_GROUP",
+    "cardGroupName": "测试",
+    "merchantCode": "M..."
+  }
+]</code></pre>
 
-    <h3>7.4 单个钱包</h3>
+    <h3>7.5 单个钱包</h3>
     <div class="endpoint"><span class="method m-get">GET</span> <code>{MERCHANT_API_BASE}/open/v1/wallets/{id}</code></div>
-    <h4>路径参数</h4><p><code>id</code>：钱包账户 ID。</p>
     <h4>响应 <code>data</code></h4><p>与列表项相同结构（单对象）。</p>
 
-    <h3>7.5 资金流水（分页）</h3>
+    <h3>7.6 资金流水（分页）</h3>
     <div class="endpoint"><span class="method m-get">GET</span> <code>{MERCHANT_API_BASE}/open/v1/wallet-ledger</code></div>
     <h4>查询参数</h4>
     <table>
       <tr><th>参数</th><th>必填</th><th>说明</th></tr>
-      <tr><td><code>memberUserId</code></td><td><strong>是</strong></td><td>终端用户 ID。</td></tr>
-      <tr><td><code>page</code></td><td>否</td><td>默认 0。</td></tr>
-      <tr><td><code>size</code></td><td>否</td><td>默认 20；上限以网关为准。</td></tr>
-      <tr><td><code>sort</code></td><td>否</td><td><code>asc</code> 或 <code>desc</code>，默认 <code>desc</code>（时间新的在前）。</td></tr>
+      <tr><td><code>memberUserId</code></td><td>否</td><td>省略时使用商户主会员。</td></tr>
+      <tr><td><code>page</code> / <code>size</code></td><td>否</td><td>默认 <code>page=0</code>、<code>size=20</code>。</td></tr>
+      <tr><td><code>sort</code></td><td>否</td><td><code>asc</code> 或 <code>desc</code>，默认 <code>desc</code>。</td></tr>
     </table>
     <h4>响应 <code>data</code></h4>
     <pre><code>{
@@ -215,92 +263,85 @@ Signature  = 小写十六进制( HMAC_SHA256( UTF8(SecretKey), HMAC输入 ) )</c
   "size": 20,
   "sort": "desc",
   "merchantCode": "M...",
-  "items": [
-    {
-      "id": "1",
-      "occurredAt": "2026-01-01T12:00:00Z",
-      "amountMinor": -500,
-      "amount": "5.00",
-      "direction": "DEBIT",
-      "balanceAfterMinor": 9500,
-      "balanceAfter": "95.00",
-      "entryType": "类型枚举",
-      "referenceType": "引用类型",
-      "referenceId": "引用ID",
-      "businessRef": "业务参考号"
-    }
-  ]
+  "items": [ { "id": "1", "amountMinor": -500, "walletAccountId": "55", "cardGroupId": "9", ... } ]
 }</code></pre>
 
-    <!-- Issuance -->
-    <h3>7.6 创建开卡任务</h3>
+    <h3>7.7 创建开卡任务</h3>
     <div class="endpoint"><span class="method m-post">POST</span> <code>{MERCHANT_API_BASE}/open/v1/card-issuance-tasks</code></div>
     <h4>请求头</h4><p>须带 <code>Idempotency-Key</code>。</p>
     <h4>请求体（仅允许下列字段）</h4>
     <pre><code>{
   "cardProductId": 1001,
-  "memberUserId": 2002
+  "memberUserId": 2002,
+  "platformCardGroupId": 9
 }</code></pre>
-    <p>其他字段将被拒绝（消费控制等由卡产品模板侧配置，不接受商户任意传入）。</p>
+    <table>
+      <tr><th>字段</th><th>必填</th><th>说明</th></tr>
+      <tr><td><code>cardProductId</code></td><td>是</td><td>已发布卡产品 ID。</td></tr>
+      <tr><td><code>memberUserId</code></td><td>否</td><td>省略 = 商户主会员。</td></tr>
+      <tr><td><code>platformCardGroupId</code></td><td>否</td><td>开卡后归属卡组；省略/null = 主钱包扣款。须为本人 ACTIVE 自建卡组。开卡时<strong>不可</strong>通过 API 向卡组划入资金。</td></tr>
+    </table>
+    <p>不接受任意 <code>spendingConstraintJson</code> 或其他未列字段。</p>
     <h4>响应 <code>data</code></h4>
     <pre><code>{
   "id": "任务ID",
   "merchantCode": "M...",
-  "status": "任务状态枚举",
-  "channelRequestId": "渠道侧请求号或 null",
-  "appliedFeeBreakdown": {
-    "feeType": "CARD_ISSUANCE",
-    "source": "MERCHANT 或 GLOBAL",
-    "ruleId": "...",
-    "ruleTable": "...",
-    "currency": "USD",
-    "calculationMode": "...",
-    "fixedFeeMinor": "...",
-    "ratePercent": 0,
-    "feeMinor": "...",
-    "summary": "人类可读摘要"
-  }
+  "status": "SUCCEEDED",
+  "channelRequestId": "...",
+  "appliedFeeBreakdown": { "feeType": "CARD_ISSUANCE", "feeMinor": "...", "summary": "..." }
 }</code></pre>
 
-    <h3>7.7 查询开卡任务</h3>
+    <h3>7.8 查询开卡任务</h3>
     <div class="endpoint"><span class="method m-get">GET</span> <code>{MERCHANT_API_BASE}/open/v1/card-issuance-tasks/{id}</code></div>
     <h4>响应 <code>data</code></h4>
-    <pre><code>{
-  "id": "...",
-  "merchantCode": "M...",
-  "status": "...",
-  "channelRequestId": "..."
-}</code></pre>
+    <pre><code>{ "id": "...", "merchantCode": "M...", "status": "...", "channelRequestId": "..." }</code></pre>
 
-    <!-- Cards -->
-    <h3>7.8 卡片列表</h3>
+    <h3>7.9 卡片列表（分页）</h3>
     <div class="endpoint"><span class="method m-get">GET</span> <code>{MERCHANT_API_BASE}/open/v1/cards</code></div>
-    <h4>响应 <code>data</code></h4>
-    <p>JSON 数组。每项常见字段：</p>
-    <pre><code>{
-  "id": "卡账户ID",
-  "displayName": "卡展示名",
-  "panMasked": "掩码PAN",
-  "panLast4": "后四位",
-  "status": "卡片状态",
-  "cardProductId": 1001,
-  "platformCardGroupId": 0,
-  "cardProductName": "产品名或 null",
-  "channelDisplayName": "发卡通道展示名",
-  "channelCode": "发卡通道代码",
-  "merchantCode": "M..."
-}</code></pre>
-
-    <h3>7.9 卡片详情</h3>
-    <div class="endpoint"><span class="method m-get">GET</span> <code>{MERCHANT_API_BASE}/open/v1/cards/{id}</code></div>
-    <h4>响应 <code>data</code></h4><p>与列表项结构一致的单对象；不包含完整 CVV 等敏感信息。</p>
-
-    <h3>7.10 卡片敏感信息</h3>
-    <div class="endpoint"><span class="method m-get">GET</span> <code>{MERCHANT_API_BASE}/open/v1/cards/{id}/sensitive?memberUserId={memberUserId}</code></div>
     <h4>查询参数</h4>
     <table>
       <tr><th>参数</th><th>必填</th><th>说明</th></tr>
-      <tr><td><code>memberUserId</code></td><td><strong>是</strong></td><td>须与卡片归属用户一致，否则返回 403。</td></tr>
+      <tr><td><code>page</code> / <code>size</code></td><td>否</td><td>默认 <code>0</code> / <code>20</code>，<code>size</code> 最大 100。</td></tr>
+      <tr><td><code>cardGroupId</code></td><td>否</td><td>不传 = 全部；<code>0</code> = 未归属主钱包；<code>&gt;0</code> = 指定卡组。</td></tr>
+    </table>
+    <h4>响应 <code>data</code></h4>
+    <p><strong>分页对象</strong>（非数组）：</p>
+    <pre><code>{
+  "total": 42,
+  "page": 0,
+  "size": 20,
+  "merchantCode": "M...",
+  "items": [
+    {
+      "id": "卡账户ID",
+      "displayName": null,
+      "panMasked": "******4242",
+      "panLast4": "4242",
+      "status": "ACTIVE",
+      "cardProductId": 1001,
+      "platformCardGroupId": 9,
+      "cardProductName": "产品名",
+      "channelDisplayName": "Slash",
+      "channelCode": "SLASH",
+      "cardGroupName": "测试",
+      "cardGroupCode": "M32_...",
+      "cardGroupMemberOwned": true,
+      "cardGroupLabel": "我的卡组 · 测试",
+      "merchantCode": "M..."
+    }
+  ]
+}</code></pre>
+
+    <h3>7.10 卡片详情</h3>
+    <div class="endpoint"><span class="method m-get">GET</span> <code>{MERCHANT_API_BASE}/open/v1/cards/{id}</code></div>
+    <h4>响应 <code>data</code></h4><p>与 §7.9 列表项结构一致的单对象；不包含完整 PAN/CVV。</p>
+
+    <h3>7.11 卡片敏感信息</h3>
+    <div class="endpoint"><span class="method m-get">GET</span> <code>{MERCHANT_API_BASE}/open/v1/cards/{id}/sensitive</code></div>
+    <h4>查询参数</h4>
+    <table>
+      <tr><th>参数</th><th>必填</th><th>说明</th></tr>
+      <tr><td><code>memberUserId</code></td><td>否</td><td>若传入须与卡片归属用户一致，否则 403。</td></tr>
     </table>
     <h4>响应 <code>data</code></h4>
     <pre><code>{
@@ -314,122 +355,169 @@ Signature  = 小写十六进制( HMAC_SHA256( UTF8(SecretKey), HMAC输入 ) )</c
 }</code></pre>
     <div class="note">该接口返回完整 PAN/CVV，请仅在必要场景调用，并确保传输与存储符合 PCI 相关要求。</div>
 
-    <h3>7.11 卡片生命周期动作</h3>
+    <h3>7.12 读取卡消费约束<span class="badge-new">新</span></h3>
+    <div class="endpoint"><span class="method m-get">GET</span> <code>{MERCHANT_API_BASE}/open/v1/cards/{id}/spending-constraint</code></div>
+    <h4>查询参数</h4><p><code>memberUserId</code>：可选。</p>
+    <p>适用 <code>channelCode=SLASH</code> 的卡片。</p>
+    <h4>响应 <code>data</code></h4>
+    <pre><code>{
+  "source": "LIVE",
+  "spendingConstraint": { },
+  "merchantCode": "M..."
+}</code></pre>
+    <p><code>source=LIVE</code> 为实时拉取；渠道不可用时可能为 <code>CACHED</code>，并含 <code>nonRealtime</code>、<code>cachedAt</code>、<code>channelError</code>。</p>
+
+    <h3>7.13 读取卡周期额度使用<span class="badge-new">新</span></h3>
+    <div class="endpoint"><span class="method m-get">GET</span> <code>{MERCHANT_API_BASE}/open/v1/cards/{id}/spending-utilization</code></div>
+    <h4>查询参数</h4><p><code>memberUserId</code>：可选。</p>
+    <h4>响应 <code>data</code></h4>
+    <pre><code>{
+  "cardAccountId": 25,
+  "supported": true,
+  "spentCents": 1200,
+  "limitCents": 50000,
+  "currency": "USD",
+  "preset": "monthly",
+  "periodKey": "2026-06",
+  "utilizationPercent": 2,
+  "source": "RECONCILE",
+  "nonRealtime": true,
+  "merchantCode": "M..."
+}</code></pre>
+
+    <h3>7.14 开卡后挂入/移出卡组<span class="badge-new">新</span></h3>
+    <div class="endpoint"><span class="method m-patch">PATCH</span> <code>{MERCHANT_API_BASE}/open/v1/cards/{id}/card-group</code></div>
+    <h4>请求头</h4><p>须带 <code>Idempotency-Key</code>。</p>
+    <h4>查询参数</h4><p><code>memberUserId</code>：可选。</p>
+    <h4>请求体</h4>
+    <pre><code>{ "platformCardGroupId": 9 }</code></pre>
+    <p>移出卡组（改回主钱包扣款）：<code>{ "platformCardGroupId": null }</code></p>
+    <p>仅可绑本人 ACTIVE 自建卡组；已开卡后不可改绑运营「平台卡组」。</p>
+    <h4>响应 <code>data</code></h4><p>与 <code>GET /cards/{id}</code> 相同（含更新后的 <code>cardGroupLabel</code> 等）。</p>
+
+    <h3>7.15 卡片生命周期动作</h3>
     <div class="endpoint"><span class="method m-post">POST</span> <code>{MERCHANT_API_BASE}/open/v1/cards/{id}/actions</code></div>
     <h4>请求头</h4><p>须带 <code>Idempotency-Key</code>。</p>
     <h4>请求体</h4>
     <pre><code>{
-  "action": "ACTIVATE | FREEZE | UNFREEZE | CLOSE（大写）",
+  "action": "ACTIVATE | FREEZE | UNFREEZE | CLOSE",
   "memberUserId": 2002
 }</code></pre>
+    <p><code>memberUserId</code> 可选。</p>
     <h4>响应 <code>data</code></h4>
-    <pre><code>{
-  "id": "卡ID",
-  "merchantCode": "M...",
-  "action": "实际执行动作",
-  "status": "执行后状态"
-}</code></pre>
+    <pre><code>{ "id": "卡ID", "merchantCode": "M...", "action": "FREEZE", "status": "FROZEN" }</code></pre>
 
-    <h3>7.12 卡消费控制部分更新</h3>
-    <div class="endpoint"><span class="method m-patch">PATCH</span> <code>{MERCHANT_API_BASE}/open/v1/cards/{id}/spending-constraint?memberUserId={memberUserId}</code></div>
+    <h3>7.16 卡消费控制部分更新</h3>
+    <div class="endpoint"><span class="method m-patch">PATCH</span> <code>{MERCHANT_API_BASE}/open/v1/cards/{id}/spending-constraint</code></div>
     <h4>请求头</h4><p>须带 <code>Idempotency-Key</code>。</p>
-    <h4>查询参数</h4><p><code>memberUserId</code>：<strong>必填</strong>。</p>
-    <h4>请求体</h4><p>JSON 对象，字段与发卡网络/消费控制模型一致，<strong>以联调时服务方提供的 JSON Schema 或示例为准</strong>；网关可能对该接口单独限频。</p>
-    <h4>响应 <code>data</code></h4><p>JSON 对象或数组，为更新后的控制视图（与上游发卡能力对齐，以实际响应为准）。</p>
+    <h4>查询参数</h4><p><code>memberUserId</code>：可选。</p>
+    <h4>请求体</h4><p>与 Slash <code>spending-constraint</code> PATCH 对齐；配置前建议调用 §7.20、§7.18、§7.19。不得突破卡产品 <code>spendingConstraintCeilingJson</code>。</p>
+    <h4>响应 <code>data</code></h4><p>更新后的消费控制 JSON。</p>
 
-    <!-- Transactions -->
-    <h3>7.13 交易分页查询</h3>
+    <h3>7.17 交易分页查询</h3>
     <div class="endpoint"><span class="method m-get">GET</span> <code>{MERCHANT_API_BASE}/open/v1/transactions</code></div>
     <h4>查询参数</h4>
     <table>
       <tr><th>参数</th><th>必填</th><th>说明</th></tr>
-      <tr><td><code>memberUserId</code></td><td><strong>是</strong></td><td>终端用户 ID。</td></tr>
-      <tr><td><code>cardId</code></td><td>否</td><td>按卡账户过滤。</td></tr>
-      <tr><td><code>txnType</code></td><td>否</td><td>交易类型过滤。</td></tr>
-      <tr><td><code>from</code> / <code>to</code></td><td>否</td><td>ISO-8601 带偏移日期时间，筛选发生时间区间。</td></tr>
-      <tr><td><code>page</code> / <code>size</code></td><td>否</td><td>分页，默认 <code>page=0</code>、<code>size=20</code>。</td></tr>
+      <tr><td><code>memberUserId</code></td><td>否</td><td>省略时使用商户主会员。</td></tr>
+      <tr><td><code>cardId</code> / <code>txnType</code> / <code>from</code> / <code>to</code></td><td>否</td><td>筛选条件。</td></tr>
+      <tr><td><code>page</code> / <code>size</code></td><td>否</td><td>默认 <code>page=0</code>、<code>size=20</code>。</td></tr>
     </table>
     <h4>响应 <code>data</code></h4>
     <pre><code>{
   "total": 100,
   "page": 0,
   "pageSize": 20,
-  "itemCount": 20,
   "merchantCode": "M...",
-  "items": [
-    {
-      "id": "交易ID",
-      "memberUserId": "2002",
-      "cardAccountId": "卡ID或 null",
-      "txnType": "...",
-      "status": "...",
-      "amountMinor": -1200,
-      "amount": "12.00",
-      "currency": "USD",
-      "occurredAt": "2026-01-01T12:00:00Z",
-      "merchantReference": "...",
-      "channelReference": "...",
-      "narrative": "...",
-      "channelCode": "...",
-      "feeTotalMinorSnapshot": null,
-      "feeRuleSourceSnapshot": null,
-      "feeRuleIdSnapshot": null,
-      "feeRuleTableSnapshot": null,
-      "feeSummarySnapshot": null,
-      "feeSnapshotFormatted": null,
-      "feeSnapshotAvailable": false,
-      "feeEstimateAvailable": true,
-      "feeRuleSource": "MERCHANT",
-      "feeSummary": "...",
-      "feeEstimateMinor": 36,
-      "feeEstimate": "0.36",
-      "feeEstimateNote": "按当前生效规则对「交易金额」试算；实际清算费用以银行/渠道为准"
-    }
-  ]
+  "items": [ { "id": "...", "amountMinor": -1200, "merchantCode": "M..." } ]
 }</code></pre>
-    <p>说明：列表项中不包含内部数字型商户主键，仅保留 <code>merchantCode</code> 便于对账。</p>
 
-    <!-- MCC -->
-    <h3>7.14 商户类别码（MCC）列表</h3>
-    <div class="endpoint"><span class="method m-get">GET</span> <code>{MERCHANT_API_BASE}/open/v1/mcc</code></div>
-    <h4>查询参数</h4><p><code>cursor</code>：可选，游标分页，语义与上游列表接口一致。</p>
-    <h4>响应 <code>data</code></h4><p>JSON 结构由上游类目服务返回（含分页游标等字段），以实际环境为准。</p>
+    <h3>7.18 Slash 商户类别<span class="badge-new">新</span></h3>
+    <div class="endpoint"><span class="method m-get">GET</span> <code>{MERCHANT_API_BASE}/open/v1/slash-catalog/merchant-categories</code></div>
+    <h4>查询参数</h4><p><code>cursor</code>：可选，游标分页。</p>
+    <h4>响应 <code>data</code></h4><p>Slash merchant-category JSON（含 <code>items</code>、下一页 <code>cursor</code> 等）。</p>
+    <p><strong>兼容别名</strong>（建议迁移至本路径）：<code>GET /open/v1/mcc</code>，行为相同。</p>
 
-    <!-- Fee rules -->
-    <h3>7.15 查询生效手续费规则并试算</h3>
+    <h3>7.19 Slash 商户搜索<span class="badge-new">新</span></h3>
+    <div class="endpoint"><span class="method m-get">GET</span> <code>{MERCHANT_API_BASE}/open/v1/slash-catalog/merchants</code></div>
+    <h4>查询参数</h4>
+    <table>
+      <tr><th>参数</th><th>必填</th><th>说明</th></tr>
+      <tr><td><code>q</code></td><td>否</td><td>名称/ID 关键字。</td></tr>
+      <tr><td><code>page</code> / <code>size</code></td><td>否</td><td>默认 0 / 20，最大 100。</td></tr>
+      <tr><td><code>ensureIds</code></td><td>否</td><td>逗号分隔 Slash 商户 ID，保证回显已选项。</td></tr>
+    </table>
+    <h4>响应 <code>data</code></h4>
+    <pre><code>{
+  "total": 1200,
+  "source": "LOCAL_DB",
+  "lastSyncAt": "2026-06-18T10:00:00Z",
+  "items": [
+    { "id": "slash_merchant_xxx", "name": "AMAZON", "label": "AMAZON (slash_merchant_xxx)" }
+  ],
+  "merchantCode": "M..."
+}</code></pre>
+
+    <h3>7.20 消费约束静态参考<span class="badge-new">新</span></h3>
+    <div class="endpoint"><span class="method m-get">GET</span> <code>{MERCHANT_API_BASE}/open/v1/spending-constraint/reference</code></div>
+    <p>组装 <code>PATCH .../spending-constraint</code> 前的 MCC/国家短列表、周期枚举等静态参考。</p>
+    <h4>响应 <code>data</code></h4>
+    <pre><code>{
+  "restrictions": ["allowlist", "blacklist"],
+  "utilizationPresets": ["daily", "weekly", "monthly", "yearly", "collective"],
+  "mccShortlist": [{ "code": "5411", "label": "5411 — 超市 / Grocery" }],
+  "countryShortlist": [{ "code": "US", "label": "US — 美国" }],
+  "fieldNotes": {
+    "merchantCategoryRule": "Slash 商户类别 ID，见 merchant-categories",
+    "merchantRule": "Slash 商户 ID，见 merchants 搜索"
+  },
+  "merchantCode": "M..."
+}</code></pre>
+
+    <h3>7.21 查询生效手续费规则并试算</h3>
     <div class="endpoint"><span class="method m-get">GET</span> <code>{MERCHANT_API_BASE}/open/v1/merchant-fee-rules/effective</code></div>
     <h4>查询参数</h4>
     <table>
       <tr><th>参数</th><th>必填</th><th>说明</th></tr>
       <tr><td><code>feeType</code></td><td><strong>是</strong></td><td><code>CARD_ISSUANCE</code> / <code>TRANSACTION</code> / <code>REFUND</code> / <code>MANUAL_TOP_UP</code> / <code>WITHDRAWAL</code></td></tr>
-      <tr><td><code>baseAmountMinor</code></td><td>否</td><td>计费基数（最小货币单位整数）。交易费场景传交易金额；开卡场景可省略或 0。</td></tr>
+      <tr><td><code>baseAmountMinor</code></td><td>否</td><td>计费基数（最小货币单位整数）。</td></tr>
     </table>
     <h4>响应 <code>data</code></h4>
     <pre><code>{
   "feeType": "TRANSACTION",
-  "source": "MERCHANT 或 GLOBAL",
-  "ruleId": "...",
-  "ruleTable": "...",
-  "calculationMode": "...",
-  "currency": "USD",
-  "fixedFeeMinor": "0",
-  "ratePercent": 0.3,
-  "tierRef": null,
-  "baseAmountMinor": "10000",
+  "source": "MERCHANT",
   "quotedFeeMinor": "30",
   "summary": "人类可读规则摘要",
   "merchantCode": "M..."
 }</code></pre>
 
-    <h2 id="s8">8. OpenAPI 机器可读描述</h2>
-    <p>服务方通常提供 <strong>OpenAPI 3</strong> 格式的 JSON 描述，便于导入 Postman、生成 SDK。常见访问路径为：</p>
-    <pre><code>GET {MERCHANT_API_BASE}/v3/api-docs/open-v1</code></pre>
-    <p>若与您环境不一致，请以交付文档为准。描述中的路径集合应与第 6 节开放清单一致。</p>
+    <h2 id="s9">9. 典型对接流程</h2>
 
-    <footer>
-      <p>本文档供外部集成方使用；内部实现、部署拓扑与数据表结构不在此列。更新日期：2026-06-17。</p>
-      <p><a href="VCC-Open-API-对外接口文档.md">Markdown 版接口文档</a> · <a href="index.html">对接指南</a> · <a href="project-documentation.html">项目总览</a></p>
-    </footer>
+    <h3>9.1 开卡并归属卡组</h3>
+    <ol class="flow">
+      <li><code>GET /card-groups</code> — 选取 <code>platformCardGroupId</code></li>
+      <li><code>GET /wallets</code> — 确认 MAIN 与子池余额（须事先在 portal 划款至子池）</li>
+      <li><code>GET /card-products</code> — 确认 <code>cardProductId</code>、<code>spendingConstraintCeilingJson</code></li>
+      <li><code>POST /card-issuance-tasks</code> — <code>{ "cardProductId", "platformCardGroupId" }</code></li>
+      <li><code>GET /cards/{id}</code> — 确认 <code>cardGroupLabel</code></li>
+    </ol>
+
+    <h3>9.2 配置消费约束</h3>
+    <ol class="flow">
+      <li><code>GET /spending-constraint/reference</code></li>
+      <li><code>GET /slash-catalog/merchant-categories</code></li>
+      <li><code>GET /slash-catalog/merchants?q=...</code></li>
+      <li><code>GET /cards/{id}/spending-constraint</code></li>
+      <li><code>PATCH /cards/{id}/spending-constraint</code></li>
+      <li><code>GET /cards/{id}/spending-utilization</code></li>
+    </ol>
+
+    <h3>9.3 开卡后改挂卡组</h3>
+    <ol class="flow">
+      <li><code>GET /card-groups</code></li>
+      <li><code>PATCH /cards/{id}/card-group</code> — <code>{ "platformCardGroupId": 9 }</code> 或 <code>null</code> 移出</li>
+      <li><code>GET /cards/{id}</code> — 确认展示字段</li>
+    </ol>
   </div>
 </body>
 </html>
