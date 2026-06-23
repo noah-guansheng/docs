@@ -50,9 +50,10 @@
 <body>
   <div class="wrap">
     <h1>商户开放平台 HTTP 接入规范</h1>
-    <p class="meta">文档性质：对外通道说明 · 版本 API <code>/open/v1</code> · 更新日期 <strong>2026-06-18</strong><br />
-    本文仅描述公网可调用的 URL、头字段与 JSON 契约；字段以联调环境为准。响应 <code>data</code> 中含 <code>merchantCode</code>，与请求头 <code>X-Merchant-Code</code> 一致。</p>
+    <p class="meta">文档性质：对外通道说明 · 版本 API <code>/open/v1</code> · 更新日期 <strong>2026-06-23</strong><br />
+    本文描述公网可调用的 URL、头字段与 JSON 契约，以及平台向商户推送的 <strong>Webhook 出站通知</strong>（含验签）。响应 <code>data</code> 中含 <code>merchantCode</code>，与请求头 <code>X-Merchant-Code</code> 一致。</p>
 
+    <div class="note note-new"><strong>2026-06-23 更新：</strong>新增 <a href="#s8">§8 商户 Webhook 出站通知</a>（回调签名、事件类型、Python/Node/Java 验签示例）。</div>
     <div class="note note-new"><strong>2026-06-18 更新：</strong>新增卡组只读/绑卡、Slash 消费约束目录、约束读取与用量投影；<code>GET /cards</code> 改为分页对象；开卡支持 <code>platformCardGroupId</code>；卡产品增加 <code>spendingConstraintCeilingJson</code>；多处 <code>memberUserId</code> 改为可选（省略时使用商户主会员）。</div>
 
     <nav class="toc" aria-label="目录">
@@ -65,6 +66,7 @@
         <li><a href="#s5">幂等与写操作</a></li>
         <li><a href="#s6">接口一览</a></li>
         <li><a href="#s7">接口明细（路径、请求、响应 <code>data</code>）</a></li>
+        <li><a href="#s8">商户 Webhook 出站通知（验签）<span class="badge-new">新</span></a></li>
         <li><a href="#s9">典型对接流程</a></li>
         <li><a href="#s10">OpenAPI 机器可读描述</a></li>
       </ol>
@@ -491,6 +493,144 @@ Signature  = 小写十六进制( HMAC_SHA256( UTF8(SecretKey), HMAC输入 ) )</c
   "merchantCode": "M..."
 }</code></pre>
 
+    <h2 id="s8">8. 商户 Webhook 出站通知（验签）<span class="badge-new">新</span></h2>
+    <p>本节为 <strong>VCC → 商户</strong> 方向的 HTTP 回调，与 <a href="#s2">§2 Open API 入站签名</a> <strong>不是同一套算法</strong>，请勿使用 API SecretKey 验签 Webhook，亦勿用 Webhook Secret 调用 Open API。</p>
+
+    <table>
+      <tr><th>对比项</th><th>Open API（商户 → VCC）</th><th>Webhook（VCC → 商户）</th></tr>
+      <tr><td>方向</td><td>商户请求 <code>/open/v1/**</code></td><td>平台 POST 至商户配置的回调 URL</td></tr>
+      <tr><td>密钥</td><td>API <strong>SecretKey</strong></td><td>Webhook <strong>Secret</strong>（门户单独配置）</td></tr>
+      <tr><td>签名输入</td><td>Canonical Request（4 行）</td><td><code>timestamp + nonce + body</code> 字符串拼接</td></tr>
+      <tr><td><code>X-Vcc-Timestamp</code></td><td>Unix <strong>秒</strong></td><td>Unix <strong>毫秒</strong></td></tr>
+      <tr><td>配置</td><td>member-portal → Open API 凭证</td><td>member-portal → <strong>Webhook 设置</strong></td></tr>
+    </table>
+
+    <h3>8.1 配置与订阅</h3>
+    <ol>
+      <li>登录 <strong>member-portal</strong>，进入 <strong>Webhook 设置</strong>。</li>
+      <li>填写回调 URL（生产须 <strong>HTTPS</strong>；禁止内网/metadata 等 SSRF 目标）。</li>
+      <li>订阅事件类型；保存后获得 <strong>Webhook Secret</strong>（仅创建/轮换时明文展示一次）。</li>
+      <li>使用「测试投递」验证连通性；「投递日志」可查询与手动重试失败记录。</li>
+    </ol>
+    <p>配置接口位于 <code>/portal/v1/webhook-config</code>（门户 JWT），<strong>不在</strong> <code>/open/v1</code> 白名单。</p>
+
+    <h3>8.2 回调 HTTP 约定</h3>
+    <table>
+      <tr><th>项</th><th>说明</th></tr>
+      <tr><td>方法</td><td><strong>POST</strong></td></tr>
+      <tr><td>Content-Type</td><td><code>application/json; charset=utf-8</code></td></tr>
+      <tr><td>成功响应</td><td>HTTP <strong>2xx</strong>（建议 200）；非 2xx 可能触发重试</td></tr>
+      <tr><td>超时</td><td>平台侧连接/读超时约 5s / 10s（以部署为准）</td></tr>
+    </table>
+
+    <h3>8.3 签名 HTTP 头</h3>
+    <table>
+      <tr><th>HTTP 头</th><th>说明</th></tr>
+      <tr><td><code>X-Vcc-Signature</code></td><td>HMAC-SHA256 签名，<strong>小写十六进制</strong></td></tr>
+      <tr><td><code>X-Vcc-Timestamp</code></td><td>签名时 Unix 时间戳，单位 <strong>毫秒</strong>（UTC）</td></tr>
+      <tr><td><code>X-Vcc-Nonce</code></td><td>16 字节随机数的小写 hex（32 字符）</td></tr>
+      <tr><td><code>X-Vcc-Event-Id</code></td><td>事件唯一 ID，须与 JSON 内 <code>eventId</code> 一致</td></tr>
+    </table>
+
+    <h3>8.4 验签算法</h3>
+    <ol>
+      <li>读取请求体<strong>原始字节</strong>，UTF-8 解码为字符串 <code>body</code>（勿重新序列化 JSON）。</li>
+      <li>读取头 <code>X-Vcc-Timestamp</code>、<code>X-Vcc-Nonce</code>、<code>X-Vcc-Signature</code>。</li>
+      <li>拼接待签名字符串（<strong>无分隔符</strong>）：<code>payload = String(timestamp) + nonce + body</code></li>
+      <li>计算：<code>expected = hex_lower( HMAC_SHA256( UTF8(WebhookSecret), UTF8(payload) ) )</code></li>
+      <li>恒定时间比较 <code>expected</code> 与 <code>X-Vcc-Signature</code>。</li>
+    </ol>
+    <pre><code>payload   = timestamp + nonce + body
+Signature = 小写十六进制( HMAC_SHA256( UTF8(WebhookSecret), UTF8(payload) ) )</code></pre>
+    <div class="note">建议（可选）：校验 <code>X-Vcc-Timestamp</code> 与当前时间偏差（如 ±5 分钟）；短期缓存 <code>X-Vcc-Nonce</code> 防重放。</div>
+
+    <h3>8.5 事件类型</h3>
+    <table>
+      <tr><th>eventType</th><th>说明</th></tr>
+      <tr><td><code>merchant.webhook.transaction.updated</code></td><td>交易状态变更（授权/清算等）</td></tr>
+      <tr><td><code>merchant.webhook.wallet.card_binding.verification_code</code></td><td>钱包绑卡验证码就绪</td></tr>
+      <tr><td><code>merchant.webhook.test</code></td><td>门户「测试投递」（联调）</td></tr>
+    </table>
+    <p>同一 <code>eventId</code> 成功投递后平台不重复推送；商户侧仍建议以 <code>eventId</code> 做业务去重。</p>
+
+    <h3>8.6 事件载荷</h3>
+    <p>外层 JSON 结构：</p>
+    <pre><code>{
+  "eventType": "merchant.webhook.transaction.updated",
+  "eventId": "mwh_evt_txn_SLASH_abc123",
+  "occurredAt": "2026-06-23T09:15:57.424Z",
+  "merchantCode": "M20260618123735000001",
+  "data": { }
+}</code></pre>
+    <h4>交易变更 — <code>data</code> 示例</h4>
+    <pre><code>{
+  "transactionId": "txn_abc123",
+  "cardAccountId": 10001,
+  "memberUserId": 32,
+  "txnType": "AUTHORIZATION",
+  "status": "APPROVED",
+  "amountMinor": 100,
+  "currency": "USD",
+  "occurredAt": "2026-06-23T09:15:57.424Z",
+  "merchantReference": "your-ref-001",
+  "channelReference": "abc123"
+}</code></pre>
+    <h4>绑卡验证码 — <code>data</code> 示例</h4>
+    <pre><code>{
+  "memberUserId": 32,
+  "inboundId": 1782206824529,
+  "walletId": 10,
+  "cardAccountId": 10001,
+  "bindingCode": "123456",
+  "expiresAt": "2026-06-23T09:22:31.285Z",
+  "channelCode": "SLASH"
+}</code></pre>
+    <div class="note">Webhook 回调 <code>data.bindingCode</code> 为完整验证码；门户投递日志 API 可能对验证码脱敏展示。</div>
+
+    <h3>8.7 重试</h3>
+    <table>
+      <tr><th>商户响应</th><th>平台行为</th></tr>
+      <tr><td>HTTP 2xx</td><td>标记成功，不再重试</td></tr>
+      <tr><td>HTTP 5xx 或连接/超时</td><td>指数退避自动重试（默认最多 3 次）</td></tr>
+      <tr><td>HTTP 4xx</td><td>一般不再自动重试</td></tr>
+    </table>
+    <p>请快速返回 2xx 并异步处理业务，避免长时间阻塞导致超时重试。</p>
+
+    <h3>8.8 验签示例</h3>
+    <h4>Python</h4>
+    <pre><code>import hmac, hashlib
+
+def verify_vcc_webhook(body_utf8: str, secret: str, headers: dict) -> bool:
+    ts = headers.get("X-Vcc-Timestamp") or headers.get("x-vcc-timestamp")
+    nonce = headers.get("X-Vcc-Nonce") or headers.get("x-vcc-nonce")
+    sig = (headers.get("X-Vcc-Signature") or headers.get("x-vcc-signature") or "").lower()
+    if not ts or not nonce or not sig:
+        return False
+    payload = f"{ts}{nonce}{body_utf8 or ''}"
+    expected = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, sig)</code></pre>
+    <h4>Node.js</h4>
+    <pre><code>import crypto from 'crypto';
+
+function verifyVccWebhook(bodyUtf8, secret, headers) {
+  const ts = headers['x-vcc-timestamp'];
+  const nonce = headers['x-vcc-nonce'];
+  const sig = (headers['x-vcc-signature'] || '').toLowerCase();
+  if (!ts || !nonce || !sig) return false;
+  const payload = `${ts}${nonce}${bodyUtf8 ?? ''}`;
+  const expected = crypto.createHmac('sha256', secret).update(payload, 'utf8').digest('hex');
+  const a = Buffer.from(expected, 'hex');
+  const b = Buffer.from(sig, 'hex');
+  return a.length === b.length &amp;&amp; crypto.timingSafeEqual(a, b);
+}</code></pre>
+    <h4>Java</h4>
+    <pre><code>Mac mac = Mac.getInstance("HmacSHA256");
+mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+String payload = timestamp + nonce + (bodyUtf8 == null ? "" : bodyUtf8);
+byte[] expected = mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
+// 与 HexFormat 解析的 X-Vcc-Signature 做 MessageDigest.isEqual 比较</code></pre>
+    <p>参考实现：仓库 <code>open-api-client-demo/src/webhook-signature.mjs</code>；本地全链路测试：<code>npm run test:webhook</code>。</p>
+
     <h2 id="s9">9. 典型对接流程</h2>
 
     <h3>9.1 开卡并归属卡组</h3>
@@ -518,6 +658,7 @@ Signature  = 小写十六进制( HMAC_SHA256( UTF8(SecretKey), HMAC输入 ) )</c
       <li><code>PATCH /cards/{id}/card-group</code> — <code>{ "platformCardGroupId": 9 }</code> 或 <code>null</code> 移出</li>
       <li><code>GET /cards/{id}</code> — 确认展示字段</li>
     </ol>
+
   </div>
 </body>
 </html>
