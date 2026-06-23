@@ -53,8 +53,8 @@
     <p class="meta">文档性质：对外通道说明 · 版本 API <code>/open/v1</code> · 更新日期 <strong>2026-06-23</strong><br />
     本文描述公网可调用的 URL、头字段与 JSON 契约，以及平台向商户推送的 <strong>Webhook 出站通知</strong>（含验签）。响应 <code>data</code> 中含 <code>merchantCode</code>，与请求头 <code>X-Merchant-Code</code> 一致。</p>
 
-    <div class="note note-new"><strong>2026-06-23 更新：</strong>新增 <a href="#s8">§8 商户 Webhook 出站通知</a>（回调签名、事件类型、Python/Node/Java 验签示例）。</div>
-    <div class="note note-new"><strong>2026-06-18 更新：</strong>新增卡组只读/绑卡、Slash 消费约束目录、约束读取与用量投影；<code>GET /cards</code> 改为分页对象；开卡支持 <code>platformCardGroupId</code>；卡产品增加 <code>spendingConstraintCeilingJson</code>；多处 <code>memberUserId</code> 改为可选（省略时使用商户主会员）。</div>
+    <div class="note note-new"><strong>2026-06-23 更新：</strong>新增 <a href="#s8">§8 商户 Webhook 出站通知</a>（回调签名、事件类型、验签示例）；补充交易 Webhook <code>txnType</code> / <code>status</code> 码值表及 <code>data</code> 字段说明。</div>
+    <div class="note note-new"><strong>2026-06-18 更新：</strong>新增卡组只读/绑卡、消费约束目录、约束读取与用量投影；<code>GET /cards</code> 改为分页对象；开卡支持 <code>platformCardGroupId</code>；卡产品增加 <code>spendingConstraintCeilingJson</code>；多处 <code>memberUserId</code> 改为可选（省略时使用商户主会员）。</div>
 
     <nav class="toc" aria-label="目录">
       <h2 style="margin-top:0">目录</h2>
@@ -68,7 +68,6 @@
         <li><a href="#s7">接口明细（路径、请求、响应 <code>data</code>）</a></li>
         <li><a href="#s8">商户 Webhook 出站通知（验签）<span class="badge-new">新</span></a></li>
         <li><a href="#s9">典型对接流程</a></li>
-        <li><a href="#s10">OpenAPI 机器可读描述</a></li>
       </ol>
     </nav>
 
@@ -132,7 +131,7 @@ Signature  = 小写十六进制( HMAC_SHA256( UTF8(SecretKey), HMAC输入 ) )</c
       <tr><td>403</td><td><code>FORBIDDEN</code></td><td>商户编码与密钥不匹配、资源归属不符等。</td></tr>
       <tr><td>404</td><td>如 <code>CARD_NOT_FOUND</code>、<code>WALLET_NOT_FOUND</code></td><td>资源不存在或无权限访问。</td></tr>
       <tr><td>409</td><td>如 <code>OPEN_API_IDEMPOTENCY_CONFLICT</code></td><td>相同幂等键与已处理请求体不一致。</td></tr>
-      <tr><td>502</td><td>如 <code>CHANNEL_TRANSACTION_FETCH_FAILED</code></td><td>渠道不可用（如 Slash 拉取约束失败且无本地快照）。</td></tr>
+      <tr><td>502</td><td>如 <code>CHANNEL_TRANSACTION_FETCH_FAILED</code></td><td>渠道不可用（如实时拉取约束失败且无本地快照）。</td></tr>
       <tr><td>429 / 503</td><td>视配置</td><td>限流或依赖不可用。</td></tr>
     </table>
 
@@ -159,8 +158,8 @@ Signature  = 小写十六进制( HMAC_SHA256( UTF8(SecretKey), HMAC输入 ) )</c
       <tr><td>POST</td><td><code>/open/v1/cards/{id}/actions</code></td><td>卡片生命周期动作</td></tr>
       <tr><td>PATCH</td><td><code>/open/v1/cards/{id}/spending-constraint</code></td><td>卡消费控制部分更新</td></tr>
       <tr><td>GET</td><td><code>/open/v1/transactions</code></td><td>交易分页查询</td></tr>
-      <tr><td>GET</td><td><code>/open/v1/slash-catalog/merchant-categories</code></td><td>Slash 商户类别（推荐）<span class="badge-new">新</span></td></tr>
-      <tr><td>GET</td><td><code>/open/v1/slash-catalog/merchants</code></td><td>Slash 商户 ID 本地搜索<span class="badge-new">新</span></td></tr>
+      <tr><td>GET</td><td><code>/open/v1/slash-catalog/merchant-categories</code></td><td>商户类别（MCC）目录<span class="badge-new">新</span></td></tr>
+      <tr><td>GET</td><td><code>/open/v1/slash-catalog/merchants</code></td><td>受理商户 ID 本地搜索<span class="badge-new">新</span></td></tr>
       <tr><td>GET</td><td><code>/open/v1/spending-constraint/reference</code></td><td>消费约束静态参考（MCC/国家短列表）<span class="badge-new">新</span></td></tr>
       <tr><td>GET</td><td><code>/open/v1/mcc</code></td><td>商户类别（<strong>别名</strong>，同 merchant-categories）</td></tr>
       <tr><td>GET</td><td><code>/open/v1/merchant-fee-rules/effective</code></td><td>查询当前生效手续费规则及试算</td></tr>
@@ -323,8 +322,8 @@ Signature  = 小写十六进制( HMAC_SHA256( UTF8(SecretKey), HMAC输入 ) )</c
       "cardProductId": 1001,
       "platformCardGroupId": 9,
       "cardProductName": "产品名",
-      "channelDisplayName": "Slash",
-      "channelCode": "SLASH",
+      "channelDisplayName": "VCC",
+      "channelCode": "VCC",
       "cardGroupName": "测试",
       "cardGroupCode": "M32_...",
       "cardGroupMemberOwned": true,
@@ -348,7 +347,7 @@ Signature  = 小写十六进制( HMAC_SHA256( UTF8(SecretKey), HMAC输入 ) )</c
     <h4>响应 <code>data</code></h4>
     <pre><code>{
   "cardId": "卡ID",
-  "channelCode": "SLASH",
+  "channelCode": "VCC",
   "pan": "完整卡号",
   "cvv": "CVV",
   "expMonth": 12,
@@ -360,7 +359,7 @@ Signature  = 小写十六进制( HMAC_SHA256( UTF8(SecretKey), HMAC输入 ) )</c
     <h3>7.12 读取卡消费约束<span class="badge-new">新</span></h3>
     <div class="endpoint"><span class="method m-get">GET</span> <code>{MERCHANT_API_BASE}/open/v1/cards/{id}/spending-constraint</code></div>
     <h4>查询参数</h4><p><code>memberUserId</code>：可选。</p>
-    <p>适用 <code>channelCode=SLASH</code> 的卡片。</p>
+    <p>适用于平台已开通消费约束能力的卡片。</p>
     <h4>响应 <code>data</code></h4>
     <pre><code>{
   "source": "LIVE",
@@ -413,7 +412,7 @@ Signature  = 小写十六进制( HMAC_SHA256( UTF8(SecretKey), HMAC输入 ) )</c
     <div class="endpoint"><span class="method m-patch">PATCH</span> <code>{MERCHANT_API_BASE}/open/v1/cards/{id}/spending-constraint</code></div>
     <h4>请求头</h4><p>须带 <code>Idempotency-Key</code>。</p>
     <h4>查询参数</h4><p><code>memberUserId</code>：可选。</p>
-    <h4>请求体</h4><p>与 Slash <code>spending-constraint</code> PATCH 对齐；配置前建议调用 §7.20、§7.18、§7.19。不得突破卡产品 <code>spendingConstraintCeilingJson</code>。</p>
+    <h4>请求体</h4><p>与平台 <code>spending-constraint</code> 规范对齐；配置前建议调用 §7.20、§7.18、§7.19。不得突破卡产品 <code>spendingConstraintCeilingJson</code>。</p>
     <h4>响应 <code>data</code></h4><p>更新后的消费控制 JSON。</p>
 
     <h3>7.17 交易分页查询</h3>
@@ -434,20 +433,20 @@ Signature  = 小写十六进制( HMAC_SHA256( UTF8(SecretKey), HMAC输入 ) )</c
   "items": [ { "id": "...", "amountMinor": -1200, "merchantCode": "M..." } ]
 }</code></pre>
 
-    <h3>7.18 Slash 商户类别<span class="badge-new">新</span></h3>
+    <h3>7.18 商户类别（MCC）<span class="badge-new">新</span></h3>
     <div class="endpoint"><span class="method m-get">GET</span> <code>{MERCHANT_API_BASE}/open/v1/slash-catalog/merchant-categories</code></div>
     <h4>查询参数</h4><p><code>cursor</code>：可选，游标分页。</p>
-    <h4>响应 <code>data</code></h4><p>Slash merchant-category JSON（含 <code>items</code>、下一页 <code>cursor</code> 等）。</p>
+    <h4>响应 <code>data</code></h4><p>商户类别 JSON（含 <code>items</code>、下一页 <code>cursor</code> 等）。</p>
     <p><strong>兼容别名</strong>（建议迁移至本路径）：<code>GET /open/v1/mcc</code>，行为相同。</p>
 
-    <h3>7.19 Slash 商户搜索<span class="badge-new">新</span></h3>
+    <h3>7.19 受理商户搜索<span class="badge-new">新</span></h3>
     <div class="endpoint"><span class="method m-get">GET</span> <code>{MERCHANT_API_BASE}/open/v1/slash-catalog/merchants</code></div>
     <h4>查询参数</h4>
     <table>
       <tr><th>参数</th><th>必填</th><th>说明</th></tr>
       <tr><td><code>q</code></td><td>否</td><td>名称/ID 关键字。</td></tr>
       <tr><td><code>page</code> / <code>size</code></td><td>否</td><td>默认 0 / 20，最大 100。</td></tr>
-      <tr><td><code>ensureIds</code></td><td>否</td><td>逗号分隔 Slash 商户 ID，保证回显已选项。</td></tr>
+      <tr><td><code>ensureIds</code></td><td>否</td><td>逗号分隔受理商户 ID，保证回显已选项。</td></tr>
     </table>
     <h4>响应 <code>data</code></h4>
     <pre><code>{
@@ -455,7 +454,7 @@ Signature  = 小写十六进制( HMAC_SHA256( UTF8(SecretKey), HMAC输入 ) )</c
   "source": "LOCAL_DB",
   "lastSyncAt": "2026-06-18T10:00:00Z",
   "items": [
-    { "id": "slash_merchant_xxx", "name": "AMAZON", "label": "AMAZON (slash_merchant_xxx)" }
+    { "id": "ext_merchant_xxx", "name": "AMAZON", "label": "AMAZON (ext_merchant_xxx)" }
   ],
   "merchantCode": "M..."
 }</code></pre>
@@ -470,8 +469,8 @@ Signature  = 小写十六进制( HMAC_SHA256( UTF8(SecretKey), HMAC输入 ) )</c
   "mccShortlist": [{ "code": "5411", "label": "5411 — 超市 / Grocery" }],
   "countryShortlist": [{ "code": "US", "label": "US — 美国" }],
   "fieldNotes": {
-    "merchantCategoryRule": "Slash 商户类别 ID，见 merchant-categories",
-    "merchantRule": "Slash 商户 ID，见 merchants 搜索"
+    "merchantCategoryRule": "商户类别 ID，见 merchant-categories",
+    "merchantRule": "受理商户 ID，见 merchants 搜索"
   },
   "merchantCode": "M..."
 }</code></pre>
@@ -547,7 +546,7 @@ Signature = 小写十六进制( HMAC_SHA256( UTF8(WebhookSecret), UTF8(payload) 
     <h3>8.5 事件类型</h3>
     <table>
       <tr><th>eventType</th><th>说明</th></tr>
-      <tr><td><code>merchant.webhook.transaction.updated</code></td><td>交易状态变更（授权/清算等）</td></tr>
+      <tr><td><code>merchant.webhook.transaction.updated</code></td><td>平台交易状态变更（清算/入账等；<strong>不含</strong>实时授权）</td></tr>
       <tr><td><code>merchant.webhook.wallet.card_binding.verification_code</code></td><td>钱包绑卡验证码就绪</td></tr>
       <tr><td><code>merchant.webhook.test</code></td><td>门户「测试投递」（联调）</td></tr>
     </table>
@@ -557,7 +556,7 @@ Signature = 小写十六进制( HMAC_SHA256( UTF8(WebhookSecret), UTF8(payload) 
     <p>外层 JSON 结构：</p>
     <pre><code>{
   "eventType": "merchant.webhook.transaction.updated",
-  "eventId": "mwh_evt_txn_SLASH_abc123",
+  "eventId": "mwh_evt_txn_abc123",
   "occurredAt": "2026-06-23T09:15:57.424Z",
   "merchantCode": "M20260618123735000001",
   "data": { }
@@ -566,15 +565,58 @@ Signature = 小写十六进制( HMAC_SHA256( UTF8(WebhookSecret), UTF8(payload) 
     <pre><code>{
   "transactionId": "txn_abc123",
   "cardAccountId": 10001,
-  "memberUserId": 32,
-  "txnType": "AUTHORIZATION",
-  "status": "APPROVED",
+  "txnType": "CHANNEL",
+  "status": "SETTLED",
   "amountMinor": 100,
   "currency": "USD",
   "occurredAt": "2026-06-23T09:15:57.424Z",
   "merchantReference": "your-ref-001",
   "channelReference": "abc123"
 }</code></pre>
+    <h4>交易变更 — <code>data</code> 字段</h4>
+    <table>
+      <tr><th>字段</th><th>类型</th><th>说明</th></tr>
+      <tr><td><code>transactionId</code></td><td>string</td><td>平台侧交易 ID，格式 <code>txn_{channelReference}</code>。</td></tr>
+      <tr><td><code>cardAccountId</code></td><td>number | null</td><td>卡账户 ID；未关联到卡时可能为 <code>null</code>。</td></tr>
+      <tr><td><code>txnType</code></td><td>string</td><td>交易类型（大写），见下表「txnType 码值」。</td></tr>
+      <tr><td><code>status</code></td><td>string</td><td>交易状态（大写），见下表「status 码值」。</td></tr>
+      <tr><td><code>amountMinor</code></td><td>number</td><td>金额，最小货币单位（如 USD 为分）；符号与平台记账一致。</td></tr>
+      <tr><td><code>currency</code></td><td>string</td><td>币种，如 <code>USD</code>。</td></tr>
+      <tr><td><code>occurredAt</code></td><td>string</td><td>业务发生时间，ISO-8601 UTC。</td></tr>
+      <tr><td><code>merchantReference</code></td><td>string | null</td><td>商户侧单号/引用（若有）。</td></tr>
+      <tr><td><code>channelReference</code></td><td>string</td><td>平台侧渠道交易引用；与 <code>GET /open/v1/transactions</code> 及幂等去重关联。</td></tr>
+    </table>
+    <h4>txnType 码值</h4>
+    <p>平台统一转为<strong>大写</strong>；缺省为 <code>CHANNEL</code>。本事件在交易<strong>清算/入账等后续阶段</strong>推送，<strong>不含</strong>实时授权。</p>
+    <table>
+      <tr><th>码值</th><th>含义</th><th>Webhook 说明</th></tr>
+      <tr><td><code>CHANNEL</code></td><td>渠道同步交易</td><td><strong>最常见</strong>；平台同步渠道交易后的默认类型。</td></tr>
+      <tr><td><code>AUTHORIZATION</code></td><td>授权</td><td>实时授权阶段<strong>不会</strong>推送本事件。</td></tr>
+      <tr><td><code>CAPTURE</code></td><td>请款 / 捕获</td><td>可能出现。</td></tr>
+      <tr><td><code>SALE</code> / <code>PURCHASE</code></td><td>消费</td><td>可能出现。</td></tr>
+      <tr><td><code>SETTLEMENT</code></td><td>清算</td><td>可能出现。</td></tr>
+      <tr><td><code>REFUND</code></td><td>退款</td><td>可能出现。</td></tr>
+      <tr><td><code>VOID</code></td><td>撤销</td><td>可能出现。</td></tr>
+      <tr><td><code>REVERSAL</code></td><td>冲正</td><td>可能出现。</td></tr>
+      <tr><td><code>FEE</code></td><td>费用</td><td>可能出现。</td></tr>
+      <tr><td><code>其他大写字符串</code></td><td>扩展类型</td><td>未在上表列出时按平台原值大写推送；请兼容未知值。</td></tr>
+    </table>
+    <h4>status 码值</h4>
+    <p>平台将上游状态映射为大写枚举；未命中下表时按原值大写推送。本事件<strong>不推送</strong> <code>AUTHORIZED</code>（实时授权）。</p>
+    <table>
+      <tr><th>码值</th><th>含义</th><th>说明</th></tr>
+      <tr><td><code>SETTLED</code></td><td>已清算 / 已入账</td><td>交易已完成清算或入账</td></tr>
+      <tr><td><code>PENDING</code></td><td>处理中</td><td>尚未终态</td></tr>
+      <tr><td><code>DECLINED</code></td><td>已拒绝</td><td>交易被拒绝</td></tr>
+      <tr><td><code>FAILED</code></td><td>失败</td><td>处理失败</td></tr>
+      <tr><td><code>CANCELLED</code></td><td>已取消</td><td>交易已取消</td></tr>
+      <tr><td><code>RETURNED</code></td><td>已退回</td><td>资金或交易已退回</td></tr>
+      <tr><td><code>REFUNDED</code></td><td>已退款</td><td>已完成退款</td></tr>
+      <tr><td><code>REVERSED</code></td><td>已冲正</td><td>交易已冲正</td></tr>
+      <tr><td><code>AUTHORIZED</code></td><td>已授权</td><td>仅内部授权阶段；<strong>不会</strong>出现在本 Webhook 事件中</td></tr>
+      <tr><td><code>其他大写字符串</code></td><td>扩展状态</td><td>未映射时原样大写；请兼容未知值</td></tr>
+    </table>
+    <div class="note"><code>data</code> 中不含 <code>memberUserId</code>；请用 <code>cardAccountId</code> / <code>channelReference</code> 关联业务。实时授权阶段不会触发本事件。同一 <code>channelReference</code> 状态变更会复用稳定 <code>eventId</code>，成功投递后不会重复推送。</div>
     <h4>绑卡验证码 — <code>data</code> 示例</h4>
     <pre><code>{
   "memberUserId": 32,
@@ -583,7 +625,7 @@ Signature = 小写十六进制( HMAC_SHA256( UTF8(WebhookSecret), UTF8(payload) 
   "cardAccountId": 10001,
   "bindingCode": "123456",
   "expiresAt": "2026-06-23T09:22:31.285Z",
-  "channelCode": "SLASH"
+  "channelCode": "VCC"
 }</code></pre>
     <div class="note">Webhook 回调 <code>data.bindingCode</code> 为完整验证码；门户投递日志 API 可能对验证码脱敏展示。</div>
 
