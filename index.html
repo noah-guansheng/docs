@@ -1,1684 +1,2530 @@
-<!DOCTYPE html>
-<html lang="zh-Hans">
+<!doctype html>
+<html lang="zh-CN">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="发卡 Open API 商户接口文档：卡组、钱包、开卡、卡片、交易与发卡 Webhook（含数币充值到账）。" />
-  <title>发卡 Open API 商户接口文档</title>
-  <style>
-    :root {
-      --bg: #f4f7fb;
-      --card: #ffffff;
-      --text: #152033;
-      --muted: #5a6b80;
-      --border: #dfe6ef;
-      --accent: #0b5fff;
-      --accent-soft: #e8f0ff;
-      --ok: #0f766e;
-      --warn-bg: #fff8eb;
-      --warn-bd: #f0c36a;
-      --code-bg: #eef2f7;
-      --pre-bg: #0f172a;
-    }
-    * { box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
-    body {
-      margin: 0;
-      font-family: "Segoe UI", system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      line-height: 1.65;
-      font-size: 15px;
-    }
-    .layout { display: flex; max-width: 1160px; margin: 0 auto; min-height: 100vh; }
-    nav.doc-nav {
-      width: 250px;
-      flex-shrink: 0;
-      padding: 1.4rem 0.9rem 2rem 1.3rem;
-      position: sticky;
-      top: 0;
-      align-self: flex-start;
-      max-height: 100vh;
-      overflow-y: auto;
-      border-right: 1px solid var(--border);
-      background: linear-gradient(180deg, #fff 0%, var(--bg) 100%);
-    }
-    nav.doc-nav .brand {
-      font-weight: 700;
-      font-size: 14px;
-      color: var(--text);
-      padding: 0.2rem 0.5rem 0.8rem;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 0.6rem;
-    }
-    nav.doc-nav .brand span { display: block; font-weight: 500; color: var(--muted); font-size: 12px; margin-top: 0.15rem; }
-    nav.doc-nav a {
-      display: block;
-      padding: 0.32rem 0.5rem;
-      color: var(--muted);
-      text-decoration: none;
-      border-radius: 6px;
-      font-size: 13px;
-    }
-    nav.doc-nav a:hover { background: var(--accent-soft); color: var(--accent); }
-    nav.doc-nav .nav-title {
-      font-weight: 700;
-      font-size: 11px;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin: 0.9rem 0 0.35rem;
-      padding: 0 0.5rem;
-    }
-    main { flex: 1; padding: 2rem 2.4rem 4rem; max-width: 860px; }
-    h1 { font-size: 1.8rem; margin: 0 0 0.4rem; letter-spacing: -0.02em; }
-    .subtitle { color: var(--muted); margin: 0 0 1.4rem; }
-    .meta {
-      display: grid;
-      grid-template-columns: 140px 1fr;
-      gap: 0.45rem 1rem;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 1rem 1.1rem;
-      margin: 1rem 0 1.5rem;
-      font-size: 14px;
-    }
-    .meta dt { color: var(--muted); }
-    .meta dd { margin: 0; }
-    h2 {
-      font-size: 1.28rem;
-      margin: 2.6rem 0 0.9rem;
-      padding-bottom: 0.35rem;
-      border-bottom: 2px solid var(--accent);
-      scroll-margin-top: 1rem;
-    }
-    h3 { font-size: 1.05rem; margin: 1.5rem 0 0.7rem; scroll-margin-top: 1rem; }
-    p { margin: 0.7rem 0; }
-    ol, ul { margin: 0.5rem 0 1rem; padding-left: 1.3rem; }
-    li { margin: 0.25rem 0; }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 1rem 0;
-      font-size: 14px;
-      background: var(--card);
-      border-radius: 8px;
-      overflow: hidden;
-      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-    }
-    th, td {
-      border: 1px solid var(--border);
-      padding: 0.6rem 0.8rem;
-      text-align: left;
-      vertical-align: top;
-    }
-    th { background: #f8fafc; font-weight: 600; }
-    code, pre { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 12.5px; }
-    code { background: var(--code-bg); padding: 0.12em 0.38em; border-radius: 4px; }
-    pre {
-      background: var(--pre-bg);
-      color: #e2e8f0;
-      padding: 1rem 1.1rem;
-      border-radius: 8px;
-      overflow-x: auto;
-      line-height: 1.5;
-      margin: 0.8rem 0 1.2rem;
-    }
-    pre code { background: none; padding: 0; color: inherit; }
-    .tip, .note {
-      border-radius: 8px;
-      padding: 0.95rem 1.05rem;
-      margin: 1rem 0;
-      font-size: 14px;
-    }
-    .tip { background: var(--warn-bg); border: 1px solid var(--warn-bd); }
-    .tip strong { color: #9a6700; }
-    .note { background: var(--accent-soft); border: 1px solid #c9dbff; }
-    .path {
-      display: inline-block;
-      background: #10243f;
-      color: #dbeafe;
-      padding: 0.35rem 0.7rem;
-      border-radius: 6px;
-      font-family: ui-monospace, Consolas, monospace;
-      font-size: 13px;
-      margin: 0.4rem 0 0.8rem;
-    }
-    .checklist { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 0.8rem 1rem 0.8rem 1.8rem; }
-    .checklist li { margin: 0.4rem 0; }
-    footer {
-      margin-top: 3rem;
-      padding-top: 1.5rem;
-      border-top: 1px solid var(--border);
-      color: var(--muted);
-      font-size: 13px;
-    }
-    @media (max-width: 900px) {
-      .layout { flex-direction: column; }
-      nav.doc-nav {
-        position: static;
-        max-height: none;
-        width: 100%;
-        border-right: none;
-        border-bottom: 1px solid var(--border);
-      }
-      main { padding: 1.4rem 1.1rem 3rem; }
-      .meta { grid-template-columns: 1fr; }
-    }
-    @media print {
-      nav.doc-nav { display: none; }
-      main { max-width: none; padding: 0; }
-      body { background: #fff; }
-      pre { white-space: pre-wrap; }
-    }
-
-    .path .method { display: inline-block; font-weight: 700; min-width: 3.4rem; font-size: 11px; padding: 0.12em 0.4em; border-radius: 4px; color: #fff; margin-right: 0.45rem; }
-    .m-get { background: #0f766e; }
-    .m-post { background: #0b5fff; }
-    .m-put { background: #c2410c; }
-    .m-patch { background: #6d28d9; }
-    .m-delete { background: #b91c1c; }
-    nav.doc-nav a.sub { padding-left: 1rem; font-size: 12px; }
-    .top-links { margin-bottom: 1.2rem; font-size: 14px; }
-    .top-links a { color: var(--accent); margin-right: 1rem; }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="商户发卡接口参考：鉴权签名、开卡充值、卡与钱包余额、交易历史、账本及事件通知。">
+<title>发卡 Open API 接口文档</title>
+<style>
+:root{color-scheme:light;--ink:#172033;--muted:#5b687c;--line:#dce3ed;--blue:#2458ab;--paper:#fff;--pale:#f4f7fb;--code:#162338}
+*{box-sizing:border-box}html{scroll-padding-top:5.5rem}body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.8 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;overflow-wrap:anywhere}
+a{color:var(--blue);text-decoration-thickness:1px;text-underline-offset:3px}a:hover{color:#123a7b}a:focus-visible,summary:focus-visible,[tabindex]:focus-visible{outline:3px solid #e5a83f;outline-offset:3px;border-radius:3px}
+.skip{position:fixed;top:-5rem;left:1rem;z-index:30;background:#fff;padding:.6rem 1rem;border:1px solid var(--blue)}.skip:focus{top:.6rem}
+.bar{position:sticky;top:0;z-index:10;display:flex;align-items:center;justify-content:space-between;gap:1rem;min-height:64px;padding:.9rem 2rem;background:#fff;border-bottom:1px solid var(--line)}.brand{color:var(--ink);font-weight:700;letter-spacing:.02em;text-decoration:none}.version{font-size:.75rem;color:var(--muted);font-weight:500;margin-left:.6rem}.downloads{display:flex;flex-wrap:wrap;gap:.4rem 1rem;font-size:.85rem}
+.layout{display:grid;grid-template-columns:270px minmax(0,1fr);max-width:1500px;margin:auto}.sidebar{position:sticky;top:64px;height:calc(100vh - 64px);overflow:auto;border-right:1px solid var(--line);padding:1.6rem 1.3rem 2.5rem;font-size:13px;scrollbar-width:thin}.nav-title{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:0 0 .75rem}.toc>ul{list-style:none;margin:0;padding:0}.toc ul ul{list-style:none;padding-left:.8rem;border-left:1px solid var(--line);margin:.35rem 0 .65rem .2rem}.toc li{margin:.32rem 0}.toc a{text-decoration:none;color:#44516a;display:block;padding:.12rem .2rem}.toc a:hover{color:var(--blue);background:var(--pale)}.toc>ul>li>a{font-weight:600;color:var(--ink)}
+main{min-width:0;padding:2.2rem clamp(1.5rem,4vw,4.5rem) 5rem;max-width:1180px}.mobile-nav{display:none}article{max-width:960px}h1,h2,h3{line-height:1.35;letter-spacing:-.015em;scroll-margin-top:5.5rem}h1{font-size:2.25rem;margin:0 0 .8rem;font-weight:750}h2{font-size:1.65rem;margin:3.4rem 0 1.1rem;padding-top:1.8rem;border-top:1px solid var(--line)}h3{font-size:1.15rem;margin:2.2rem 0 .85rem;color:#253d61}p{margin:.8rem 0}li{margin:.35rem 0}strong{font-weight:650}code{font: .88em/1.6 ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;background:#edf2f8;border-radius:3px;padding:.12em .3em;overflow-wrap:anywhere}pre{max-width:100%;overflow:auto;background:var(--code);color:#eaf1ff;border:1px solid #24364f;border-radius:6px;padding:1.05rem 1.2rem;font-size:13px;line-height:1.7;tab-size:4}pre code{font:inherit;background:none;padding:0;color:inherit;white-space:pre;overflow-wrap:normal}blockquote{border-left:3px solid #537caf;background:var(--pale);margin:1.1rem 0;padding:.2rem 1rem;color:#334761}.table-wrap{max-width:100%;overflow-x:auto;margin:1.1rem 0 1.5rem;border:1px solid var(--line);border-radius:5px}table{border-collapse:collapse;width:100%;font-size:13px;line-height:1.7}th,td{text-align:left;vertical-align:top;padding:.65rem .8rem;border-bottom:1px solid var(--line)}th{background:var(--pale);font-weight:650;color:#34445e}tr:last-child td{border-bottom:0}th:first-child,td:first-child{min-width:120px}td code{background:transparent;color:#254c81;padding:0}footer{border-top:1px solid var(--line);padding:1.4rem 0 0;margin-top:3rem;color:var(--muted);font-size:12px}.mobile-nav summary{cursor:pointer;font-weight:600}
+@media(max-width:1000px){.layout{grid-template-columns:225px minmax(0,1fr)}.sidebar{padding:1.2rem .9rem;font-size:12px}main{padding:1.8rem 1.5rem 4rem}h1{font-size:1.9rem}}
+@media(max-width:760px){html{scroll-padding-top:1rem}.bar{position:static;align-items:flex-start;padding:1rem;flex-direction:column;gap:.6rem}.downloads{font-size:12px}.layout{display:block}.sidebar{display:none}main{padding:1.2rem 1rem 3rem}.mobile-nav{display:block;border:1px solid var(--line);border-radius:5px;padding:.65rem .9rem;margin:0 0 1.8rem;background:var(--pale)}.mobile-nav .toc{margin-top:1rem;max-height:55vh;overflow:auto;font-size:13px}h1{font-size:1.7rem}h2{font-size:1.35rem;margin-top:2.5rem;padding-top:1.4rem}h3{font-size:1.05rem}h1,h2,h3{scroll-margin-top:1rem}body{font-size:14px}th,td{padding:.6rem .65rem}table{min-width:600px}pre{font-size:12px;padding:.85rem}.version{font-size:11px}}
+@media print{.bar,.sidebar,.mobile-nav,.skip{display:none}.layout{display:block}main{max-width:none;padding:0}h2{break-before:auto}h2,h3{break-after:avoid}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f4f7fb;color:#111;border:1px solid #ccd}pre code{white-space:pre-wrap}.table-wrap{overflow:visible}table{font-size:10px;min-width:0}a{color:#111}body{font-size:11px}}
+</style>
 </head>
 <body>
-  <div class="layout">
-    <nav class="doc-nav" aria-label="目录">
-      <div class="brand">发卡 Open API<span>商户对接 · /open/v1</span></div>
-      <div class="nav-title">目录</div>
-      <a href="#overview">概述</a>
-      <a href="#prepare">接入前准备</a>
-      <a href="#s1">基础约定</a>
-      <a href="#s2">鉴权与签名</a>
-      <a href="#s3">公共请求头</a>
-      <a href="#s4">统一响应</a>
-      <a href="#s5">幂等与写操作</a>
-      <a href="#s6">接口一览</a>
-      <div class="nav-title">接口明细</div>
-      <a class="sub" href="#api-health">健康检查 / 卡产品</a>
-      <a class="sub" href="#api-card-groups">卡组与划款</a>
-      <a class="sub" href="#api-wallets">钱包与流水</a>
-      <a class="sub" href="#api-issuance-create">开卡任务</a>
-      <a class="sub" href="#api-cards">卡片与约束</a>
-      <a class="sub" href="#api-transactions">交易 / 目录 / 费率</a>
-      <div class="nav-title">出站</div>
-      <a href="#s8">发卡 Webhook</a>
-      <a class="sub" href="#deposit-posted">数币充值到账</a>
-      <a href="#s9">典型流程</a>
-      <a href="#checklist">联调清单</a>
-      <a href="#changelog">变更记录</a>
-    </nav>
+<a class="skip" href="#content">跳转到正文</a>
+<header class="bar"><a class="brand" href="index.html">发卡 Open API<span class="version">API v1</span></a></header>
+<div class="layout">
+<aside class="sidebar"><p class="nav-title">接口参考 / REFERENCE</p><nav aria-label="文档目录"><div class="toc">
+<ul>
+<li><a href="#overview">1. 概述与接入准备</a><ul>
+<li><a href="#money-model">1.1 资金与查询对象</a></li>
+<li><a href="#account-scope">1.2 账户查询范围</a></li>
+</ul>
+</li>
+<li><a href="#protocol">2. 公共协议</a><ul>
+<li><a href="#formats">2.1 请求、金额与时间</a></li>
+<li><a href="#response-envelope">2.2 公共响应</a></li>
+</ul>
+</li>
+<li><a href="#authentication">3. 请求鉴权与签名</a><ul>
+<li><a href="#request-headers">3.1 请求头</a></li>
+<li><a href="#canonical-request">3.2 四行 Canonical Request</a></li>
+<li><a href="#signing-example">3.3 Python 签名示例</a></li>
+</ul>
+</li>
+<li><a href="#idempotency">4. 幂等、限流与结果恢复</a></li>
+<li><a href="#quick-start">5. 快速开始</a></li>
+<li><a href="#endpoint-index">6. 接口速查</a></li>
+<li><a href="#products">7. 健康与产品</a><ul>
+<li><a href="#health">7.1 健康检查</a></li>
+<li><a href="#card-products">7.2 查询可用产品</a></li>
+</ul>
+</li>
+<li><a href="#operations">8. 开卡、充值与卡操作</a><ul>
+<li><a href="#create-quote">8.1 开卡报价</a></li>
+<li><a href="#create-card">8.2 提交开卡</a></li>
+<li><a href="#get-operation">8.3 查询卡操作</a></li>
+<li><a href="#operation-model">8.4 卡操作模型与状态</a></li>
+<li><a href="#recharge-quote">8.5 充值报价</a></li>
+<li><a href="#recharge-card">8.6 提交充值</a></li>
+<li><a href="#card-actions">8.7 冻结、解冻、销卡</a></li>
+</ul>
+</li>
+<li><a href="#cards">9. 卡片查询与余额</a><ul>
+<li><a href="#list-cards">9.1 卡列表</a></li>
+<li><a href="#get-card">9.2 脱敏卡详情</a></li>
+<li><a href="#sensitive-card">9.3 卡敏感资料</a></li>
+<li><a href="#card-balance">9.4 查询单卡余额</a></li>
+</ul>
+</li>
+<li><a href="#wallets">10. 钱包与账本</a><ul>
+<li><a href="#list-wallets">10.1 钱包列表</a></li>
+<li><a href="#get-wallet">10.2 钱包详情</a></li>
+<li><a href="#wallet-ledger">10.3 钱包账本分页</a></li>
+<li><a href="#ledger-reconciliation">10.4 开卡与充值账本核对</a></li>
+</ul>
+</li>
+<li><a href="#transactions">11. 交易历史与数据同步</a><ul>
+<li><a href="#list-transactions">11.1 交易分页查询</a></li>
+<li><a href="#transaction-model">11.2 交易记录字段</a></li>
+<li><a href="#history-import">11.3 首次历史导入</a></li>
+<li><a href="#incremental-sync">11.4 增量同步与余额对账</a></li>
+</ul>
+</li>
+<li><a href="#compatibility">12. 兼容查询、卡组与费用</a><ul>
+<li><a href="#list-card-groups">12.1 卡组列表</a></li>
+<li><a href="#release-card-group">12.2 卡组资金划回主钱包</a></li>
+<li><a href="#historical-task">12.3 兼容发卡任务查询</a></li>
+<li><a href="#effective-fees">12.4 查询生效手续费规则及试算</a></li>
+</ul>
+</li>
+<li><a href="#webhooks">13. Webhook 通知</a><ul>
+<li><a href="#webhook-delivery">13.1 配置与接收规则</a></li>
+<li><a href="#webhook-signature">13.2 通知请求头与签名</a></li>
+<li><a href="#webhook-envelope">13.3 通知公共信封</a></li>
+<li><a href="#operation-webhook">13.4 卡操作更新通知</a></li>
+<li><a href="#transaction-webhook">13.5 交易更新通知</a></li>
+<li><a href="#deposit-webhook">13.6 数币充值到账通知</a></li>
+<li><a href="#binding-code-webhook">13.7 绑卡验证码通知</a></li>
+</ul>
+</li>
+<li><a href="#errors">14. 错误码与排查</a></li>
+<li><a href="#integration-checklist">15. 接入检查清单</a></li>
+</ul>
+</div>
+</nav></aside>
+<main id="content" tabindex="-1"><details class="mobile-nav"><summary>文档目录</summary><nav aria-label="移动文档目录"><div class="toc">
+<ul>
+<li><a href="#overview">1. 概述与接入准备</a><ul>
+<li><a href="#money-model">1.1 资金与查询对象</a></li>
+<li><a href="#account-scope">1.2 账户查询范围</a></li>
+</ul>
+</li>
+<li><a href="#protocol">2. 公共协议</a><ul>
+<li><a href="#formats">2.1 请求、金额与时间</a></li>
+<li><a href="#response-envelope">2.2 公共响应</a></li>
+</ul>
+</li>
+<li><a href="#authentication">3. 请求鉴权与签名</a><ul>
+<li><a href="#request-headers">3.1 请求头</a></li>
+<li><a href="#canonical-request">3.2 四行 Canonical Request</a></li>
+<li><a href="#signing-example">3.3 Python 签名示例</a></li>
+</ul>
+</li>
+<li><a href="#idempotency">4. 幂等、限流与结果恢复</a></li>
+<li><a href="#quick-start">5. 快速开始</a></li>
+<li><a href="#endpoint-index">6. 接口速查</a></li>
+<li><a href="#products">7. 健康与产品</a><ul>
+<li><a href="#health">7.1 健康检查</a></li>
+<li><a href="#card-products">7.2 查询可用产品</a></li>
+</ul>
+</li>
+<li><a href="#operations">8. 开卡、充值与卡操作</a><ul>
+<li><a href="#create-quote">8.1 开卡报价</a></li>
+<li><a href="#create-card">8.2 提交开卡</a></li>
+<li><a href="#get-operation">8.3 查询卡操作</a></li>
+<li><a href="#operation-model">8.4 卡操作模型与状态</a></li>
+<li><a href="#recharge-quote">8.5 充值报价</a></li>
+<li><a href="#recharge-card">8.6 提交充值</a></li>
+<li><a href="#card-actions">8.7 冻结、解冻、销卡</a></li>
+</ul>
+</li>
+<li><a href="#cards">9. 卡片查询与余额</a><ul>
+<li><a href="#list-cards">9.1 卡列表</a></li>
+<li><a href="#get-card">9.2 脱敏卡详情</a></li>
+<li><a href="#sensitive-card">9.3 卡敏感资料</a></li>
+<li><a href="#card-balance">9.4 查询单卡余额</a></li>
+</ul>
+</li>
+<li><a href="#wallets">10. 钱包与账本</a><ul>
+<li><a href="#list-wallets">10.1 钱包列表</a></li>
+<li><a href="#get-wallet">10.2 钱包详情</a></li>
+<li><a href="#wallet-ledger">10.3 钱包账本分页</a></li>
+<li><a href="#ledger-reconciliation">10.4 开卡与充值账本核对</a></li>
+</ul>
+</li>
+<li><a href="#transactions">11. 交易历史与数据同步</a><ul>
+<li><a href="#list-transactions">11.1 交易分页查询</a></li>
+<li><a href="#transaction-model">11.2 交易记录字段</a></li>
+<li><a href="#history-import">11.3 首次历史导入</a></li>
+<li><a href="#incremental-sync">11.4 增量同步与余额对账</a></li>
+</ul>
+</li>
+<li><a href="#compatibility">12. 兼容查询、卡组与费用</a><ul>
+<li><a href="#list-card-groups">12.1 卡组列表</a></li>
+<li><a href="#release-card-group">12.2 卡组资金划回主钱包</a></li>
+<li><a href="#historical-task">12.3 兼容发卡任务查询</a></li>
+<li><a href="#effective-fees">12.4 查询生效手续费规则及试算</a></li>
+</ul>
+</li>
+<li><a href="#webhooks">13. Webhook 通知</a><ul>
+<li><a href="#webhook-delivery">13.1 配置与接收规则</a></li>
+<li><a href="#webhook-signature">13.2 通知请求头与签名</a></li>
+<li><a href="#webhook-envelope">13.3 通知公共信封</a></li>
+<li><a href="#operation-webhook">13.4 卡操作更新通知</a></li>
+<li><a href="#transaction-webhook">13.5 交易更新通知</a></li>
+<li><a href="#deposit-webhook">13.6 数币充值到账通知</a></li>
+<li><a href="#binding-code-webhook">13.7 绑卡验证码通知</a></li>
+</ul>
+</li>
+<li><a href="#errors">14. 错误码与排查</a></li>
+<li><a href="#integration-checklist">15. 接入检查清单</a></li>
+</ul>
+</div>
+</nav></details><article><h1 id="open-api">发卡 Open API 接口文档</h1>
+<p>API 版本：<code>v1</code> · 更新日期：2026-11-17 · 传输格式：HTTPS / JSON</p>
+<h2 id="overview">1. 概述与接入准备</h2>
+<p>本接口供商户服务端接入产品查询、单卡余额开卡、卡充值、卡状态管理、余额、交易历史、钱包账本和事件通知。所有资源均受商户归属及已开通权限限制。</p>
+<p>本文使用 <code>https://api.example.com</code> 作为<strong>示例地址</strong>，不是实际服务地址。请将示例中的 <code>{BASE}</code> 替换为接入开通资料提供的 API 根地址，不带末尾 <code>/</code>。文档站地址不等于 API 地址。</p>
+<p>接入前请取得发卡类型 <code>ISSUING</code> 的 AccessKeyId、SecretKey、商户编码和服务地址，并确认可用产品、关联账户和主钱包资金。首次开卡报价及新申请要求商户<strong>已配置唯一可用开卡账户</strong>；账户配置缺失或不唯一时应联系服务支持，不能在开卡请求中指定另一个账户绕过。</p>
+<p>商户开通、凭证管理、主钱包入金及提现不由本文接口提供，按已约定的服务流程办理。Webhook 使用独立 Secret，并需事先配置商户 HTTPS 接收地址及订阅事件。</p>
+<h3 id="money-model">1.1 资金与查询对象</h3>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>对象</th>
+<th>用途</th>
+<th>查询方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>主钱包 <code>MAIN</code></td>
+<td>支付开卡、充值本金及服务费</td>
+<td><code>/wallets</code>、<code>/wallets/{walletId}</code></td>
+</tr>
+<tr>
+<td>单卡余额</td>
+<td>支付该卡消费并接收适用的卡内退款</td>
+<td><code>/cards/{cardId}/balance</code></td>
+</tr>
+<tr>
+<td>卡交易</td>
+<td>消费、授权、退款、冲正等可见记录</td>
+<td><code>/transactions</code></td>
+</tr>
+<tr>
+<td>钱包账本</td>
+<td>钱包入账、预占、释放等资金变动</td>
+<td><code>/wallet-ledger</code></td>
+</tr>
+<tr>
+<td>卡组钱包 <code>CARD_GROUP</code></td>
+<td>已有卡组资金及兼容查询</td>
+<td><code>/wallets</code>，按钱包区分账本</td>
+</tr>
+</tbody>
+</table></div>
+<p>开卡或充值受理时，主钱包一次预占本金和服务费；成功后确认该预占，不重复扣款。后续卡内消费和退款不再次扣退主钱包本金。卡余额不足不会自动从主钱包补款。销卡完成与余额退回主钱包是两个需要分别确认的结果。</p>
+<h3 id="account-scope">1.2 账户查询范围</h3>
+<p><code>memberUserId</code> 是商户关联账户 ID，不是商户编码。仅在明确支持该参数的接口传入；指定值必须属于当前商户。</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>接口</th>
+<th>省略账户参数时的范围</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>卡列表、卡详情</td>
+<td>当前商户可见的卡；卡列表不接受 <code>memberUserId</code></td>
+</tr>
+<tr>
+<td>钱包列表</td>
+<td>当前商户范围内关联账户的可见钱包</td>
+</tr>
+<tr>
+<td>交易、钱包账本、卡组列表</td>
+<td>商户默认关联账户；查询指定账户时传 <code>memberUserId</code></td>
+</tr>
+<tr>
+<td>开卡报价、新开卡</td>
+<td>必须已配置唯一可用开卡账户，接口不提供账户选择参数</td>
+</tr>
+<tr>
+<td>已有卡的余额、充值与状态操作</td>
+<td>按卡 ID 校验商户归属并使用该卡所属账户</td>
+</tr>
+</tbody>
+</table></div>
+<p>默认账户查询不等于所有账户汇总。导入多个账户的历史交易或账本时，应先确认账户映射，再分别查询。</p>
+<h2 id="protocol">2. 公共协议</h2>
+<h3 id="formats">2.1 请求、金额与时间</h3>
+<ul>
+<li>基础路径为 <code>/open/v1</code>，业务请求使用 HTTPS；JSON 请求头为 <code>Content-Type: application/json</code>。</li>
+<li>除免签健康检查外，所有请求需携带发卡凭证与签名。</li>
+<li>新开卡和充值金额为 USD 最小单位的正整数，<code>1000</code> 表示 10.00 USD；JSON 不接受小数、科学计数法、数字字符串或超出 64 位有符号整数范围的金额。</li>
+<li>兼容卡组划出接口的 <code>amount</code> 是准确的十进制字符串，例如 <code>"50.00"</code>；不得与整数金额接口混用。</li>
+<li>返回 ID 的 JSON 类型按各模型说明保留；字符串 ID 不应经浮点转换。路径使用平台返回的资源 ID，不使用完整卡号或其他来源的标识代替。</li>
+<li>请求签名时间戳为 Unix <strong>秒</strong>；Webhook 时间戳为 Unix <strong>毫秒</strong>。业务时间采用 ISO-8601，查询建议使用 UTC <code>Z</code>，如 <code>2026-11-01T00:00:00Z</code>。</li>
+<li>未注明的请求参数不作为支持能力。新开卡、充值及状态操作拒绝未知 JSON 字段。</li>
+<li>返回对象允许扩展字段；接入程序应忽略不认识的响应字段，同时保留不认识的状态值供核对。</li>
+</ul>
+<h3 id="response-envelope">2.2 公共响应</h3>
+<p>成功响应：</p>
+<pre tabindex="0"><code class="language-json">{&quot;code&quot;:&quot;0&quot;,&quot;message&quot;:&quot;OK&quot;,&quot;data&quot;:{&quot;status&quot;:&quot;UP&quot;},&quot;traceId&quot;:&quot;example-trace-id&quot;}
+</code></pre>
+<p>错误响应示例：</p>
+<pre tabindex="0"><code class="language-json">{&quot;code&quot;:&quot;40111&quot;,&quot;message&quot;:&quot;请求签名不匹配&quot;,&quot;traceId&quot;:&quot;example-trace-id&quot;}
+</code></pre>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>字段</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>code</code></td>
+<td>string</td>
+<td><code>"0"</code> 表示本次 API 调用成功；其他值为业务错误码</td>
+</tr>
+<tr>
+<td><code>message</code></td>
+<td>string</td>
+<td>结果说明，程序分支优先使用 <code>code</code></td>
+</tr>
+<tr>
+<td><code>data</code></td>
+<td>object / array</td>
+<td>各接口的业务数据；错误时可能不出现</td>
+</tr>
+<tr>
+<td><code>traceId</code></td>
+<td>string / null</td>
+<td>排查引用，可能为空；联系支持时提供</td>
+</tr>
+</tbody>
+</table></div>
+<p>后文“响应 data”示例只展示 <code>data</code> 内容，实际 HTTP 响应包含上述外壳。HTTP 200 或 <code>code="0"</code> 不能代替异步操作的业务完成状态，开卡、充值及卡操作仅以 <code>status=SUCCEEDED</code> 确认完成。</p>
+<h2 id="authentication">3. 请求鉴权与签名</h2>
+<h3 id="request-headers">3.1 请求头</h3>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>请求头</th>
+<th>必填</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>X-Access-Key-Id</code></td>
+<td>是</td>
+<td>已开通的 ISSUING AccessKeyId</td>
+</tr>
+<tr>
+<td><code>X-Merchant-Code</code></td>
+<td>是</td>
+<td>与凭证绑定的商户编码</td>
+</tr>
+<tr>
+<td><code>X-Vcc-Timestamp</code></td>
+<td>是</td>
+<td>当前 Unix 秒时间戳的十进制字符串</td>
+</tr>
+<tr>
+<td><code>X-Vcc-Signature</code></td>
+<td>是</td>
+<td>HMAC-SHA256 的小写十六进制结果</td>
+</tr>
+<tr>
+<td><code>Idempotency-Key</code></td>
+<td>写操作是</td>
+<td>稳定业务幂等键，详见<a href="#idempotency">幂等与恢复</a></td>
+</tr>
+<tr>
+<td><code>Content-Type</code></td>
+<td>JSON 请求是</td>
+<td><code>application/json</code></td>
+</tr>
+</tbody>
+</table></div>
+<p><code>GET /open/v1/health</code> 不要求签名。本文标准发卡请求采用四行签名，<strong>不发送 <code>X-Vcc-Nonce</code></strong>；通知头中的 nonce 属于另一个验签协议。</p>
+<h3 id="canonical-request">3.2 四行 Canonical Request</h3>
+<p>按以下顺序生成四行内容，各行以单个 LF（<code>\n</code>）连接，末尾不额外添加换行：</p>
+<pre tabindex="0"><code class="language-text">大写HTTP方法
+不含域名和query的请求路径
+规范化query
+原始body字节的SHA256小写hex
+</code></pre>
+<p>规范化 query 的步骤：取全部键值对，包括重复参数；分别对键和值作 RFC3986 百分号编码；按<strong>编码后的键</strong>、再按<strong>编码后的值</strong>升序排列；以 <code>key=value</code> 形式用 <code>&amp;</code> 拼接。空格是 <code>%20</code>，不能用 <code>+</code>；百分号编码使用大写 hex。没有 query 时第三行为空。</p>
+<p>GET 没有 body 时，对空字节求 SHA256，不对 <code>{}</code> 求散列。POST 应先固定 UTF-8 JSON 字节，再用同一份字节签名和发送。</p>
+<pre tabindex="0"><code class="language-text">signature = hex_lower(HMAC_SHA256(UTF8(SecretKey), UTF8(CanonicalRequest)))
+</code></pre>
+<p>SecretKey 按明文 UTF-8 字节使用，不做 Base64 解码。Secret 仅保存在商户服务端，不放入浏览器、移动客户端、URL 或日志。建议同步服务器时钟；默认允许偏差为前后 10 分钟，实际以开通配置为准，收到 <code>40112</code> 时校时后重新签名。</p>
+<h3 id="signing-example">3.3 Python 签名示例</h3>
+<p>以下代码只生成签名和请求头，不发送请求。请求参数、body 与实际发出的内容必须一致。</p>
+<pre tabindex="0"><code class="language-python">import hashlib
+import hmac
+import time
+from urllib.parse import quote, urlsplit, parse_qsl
 
-    <main>
-      <p class="top-links">
-        <a href="acquiring-merchant-api.html">收单 Open API →</a>
-        <a href="index.html">对接指南 →</a>
-      </p>
-      <h1 id="overview">发卡 Open API 接口文档</h1>
-      <p class="subtitle">面向发卡商户。能力覆盖卡产品、卡组与划款、钱包只读、开卡、卡片生命周期与消费约束、交易查询；数币充值到账通过发卡 Webhook 通知，Open API 不提供充值写接口。</p>
+def canonical_query(pairs):
+    encoded = [(quote(str(k), safe=&quot;-._~&quot;), quote(str(v), safe=&quot;-._~&quot;))
+               for k, v in pairs]
+    return &quot;&amp;&quot;.join(k + &quot;=&quot; + v for k, v in sorted(encoded))
 
-      <dl class="meta">
-        <dt>文档版本</dt><dd>2026-08-14</dd>
-        <dt>服务前缀</dt><dd><code>/open/v1/**</code>（不含 <code>/open/v1/acquiring/**</code>）</dd>
-        <dt>凭证类型</dt><dd>必须使用 <code>credential_type = ISSUING</code> 的 AccessKey</dd>
-        <dt>Base URL</dt><dd>由交付环境提供，形如 <code>https://{host}</code>（下文路径相对该 Host）</dd>
-        <dt>金额约定</dt><dd>带 <code>Minor</code> / <code>Cents</code> 后缀为最小货币单位整数；两位小数字符串为展示金额</dd>
-      </dl>
+def signed_headers(access_key, secret, merchant_code, method, url, body=b&quot;&quot;):
+    parts = urlsplit(url)
+    query = canonical_query(parse_qsl(parts.query, keep_blank_values=True))
+    canonical = &quot;\n&quot;.join([
+        method.upper(), parts.path, query, hashlib.sha256(body).hexdigest()
+    ])
+    signature = hmac.new(secret.encode(&quot;utf-8&quot;), canonical.encode(&quot;utf-8&quot;),
+                         hashlib.sha256).hexdigest()
+    return {
+        &quot;X-Access-Key-Id&quot;: access_key,
+        &quot;X-Merchant-Code&quot;: merchant_code,
+        &quot;X-Vcc-Timestamp&quot;: str(int(time.time())),
+        &quot;X-Vcc-Signature&quot;: signature,
+    }
 
-      <div class="tip">
-        <strong>重要：</strong>本接口仅接受 <code>ISSUING</code> 凭证。使用 <code>ACQUIRING</code> 凭证调用发卡路径返回 <code>40314</code>。
-        收单能力见独立文档 <a href="acquiring-merchant-api.html">收单 Open API 商户接口文档</a>。
-      </div>
-
-      <h2 id="prepare">接入前准备</h2>
-      <ol>
-        <li>联系运营开通商户 Open API，获取 <strong>ISSUING</strong> 凭证：<code>AccessKeyId</code> + <code>SecretKey</code> + <code>MerchantCode</code>。</li>
-        <li>实现请求签名（§2）与写操作幂等 Key（§5）。</li>
-        <li>如需交易/绑卡/数币到账通知：在 member-portal <strong>Webhook 设置</strong>配置 HTTPS 回调 URL、订阅事件，并保存 <strong>Webhook Secret</strong>（仅创建/轮换时展示一次）。</li>
-        <li>数币充值地址在会员门户「数币充值」生成；到账后等待 Webhook <code>merchant.webhook.wallet.deposit.posted</code>，并用钱包只读接口核对。</li>
-      </ol>
-
-<h2 id="s1">1. 基础约定与接入地址</h2>
-    <table>
-      <thead><tr><th>项</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td>协议</td><td>生产环境使用 <strong>HTTPS</strong>；字符集 <strong>UTF-8</strong>。</td></tr>
-      <tr><td>数据格式</td><td>请求与响应体为 <code>application/json</code>（GET 无 body 除外）。</td></tr>
-      <tr><td>基础路径</td><td>所有开放接口均位于 <code>{MERCHANT_API_BASE}/open/v1</code>。将 <code>{MERCHANT_API_BASE}</code> 替换为服务方提供的网关根地址（不含末尾斜杠）。</td></tr>
-      <tr><td>示例</td><td><code>https://api.example.com/open/v1/wallets</code></td></tr>
-      <tr><td>终端用户</td><td>多数接口的 <code>memberUserId</code> <strong>可选</strong>；省略时使用商户<strong>主会员</strong>账号（与 member-portal 主账号一致）。</td></tr>
-    </tbody></table>
-
-    <h2 id="s2">2. 鉴权与请求签名</h2>
-    <p>除「健康检查」接口外，所有 <code>/open/v1/...</code> 请求必须在 HTTP 头中携带访问凭据与签名。签名算法为 <strong>HMAC-SHA256</strong>，输出为<strong>小写十六进制字符串</strong>。</p>
-    <h3>2.1 待签名字符串（Canonical Request）</h3>
-    <p>将以下 4 行按顺序用换行符 <code>\n</code>（ASCII 0x0A）连接，得到 UTF-8 字节序列后作为 HMAC 的输入消息：</p>
-    <ol>
-      <li><strong>HTTP 方法</strong>：大写，如 <code>GET</code>、<code>POST</code>。</li>
-      <li><strong>路径</strong>：与网关可见的 Servlet 路径一致，例如 <code>/open/v1/cards</code>（不含域名与查询串）。</li>
-      <li><strong>查询串</strong>：对查询参数名按字典序排序；同名参数多值按值排序；键值对形如 <code>key=value</code>，以 <code>&amp;</code> 连接；键与值均需 URL 编码（空格为 <code>%20</code>）。<strong>若无查询参数，本行为空字符串</strong>（不要写 <code>?</code>）。</li>
-      <li><strong>请求体哈希</strong>：对请求体<strong>原始字节</strong>做 SHA-256，输出<strong>小写十六进制</strong>。无 body 时，对<strong>空字节序列</strong>做 SHA-256（注意与 <code>{}</code> 的字节不同）。</li>
-    </ol>
-    <pre><code>HMAC输入 = UTF8( method + "\n" + path + "\n" + canonicalQuery + "\n" + bodySha256Hex )
-Signature  = 小写十六进制( HMAC_SHA256( UTF8(SecretKey), HMAC输入 ) )</code></pre>
-    <p><code>SecretKey</code> 为服务方在创建或轮换 API 凭据时向您下发的私钥；轮换宽限期内新旧密钥可能均可验签，以交付说明为准。</p>
-    <h3>2.2 未开放路径</h3>
-    <p>若请求的 URL 不在当前版本开放清单内，即使签名正确，网关也可能返回 HTTP 401 及业务错误码 <code>40113</code>（<code>OPEN_API_PATH_NOT_ALLOWED</code>），表示该路径不对商户开放。</p>
-
-    <h3>2.3 凭证范围</h3>
-    <table>
-      <thead><tr><th>项</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td>允许的凭证</td><td><code>credential_type = ISSUING</code></td></tr>
-      <tr><td>可调用路径</td><td>本文 <code>/open/v1/**</code> 发卡接口，以及 <code>GET /open/v1/health</code></td></tr>
-      <tr><td>不可调用</td><td><code>/open/v1/acquiring/**</code>（须使用 ACQUIRING 凭证，见收单文档）</td></tr>
-      <tr><td>错误</td><td>凭证类型不匹配 → HTTP <strong>403</strong>，业务码 <code>40314</code>（<code>OPEN_API_CREDENTIAL_SCOPE_DENIED</code>）</td></tr>
-      </tbody>
-    </table>
-
-    <h2 id="s3">3. 公共请求头</h2>
-    <table>
-      <thead><tr><th>HTTP 头</th><th>必填</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>X-Access-Key-Id</code></td><td>除健康检查外必填</td><td>服务方分配的访问密钥 ID。</td></tr>
-      <tr><td><code>X-Merchant-Code</code></td><td>除健康检查外必填</td><td>您的商户编码，须与访问密钥所属商户一致。</td></tr>
-      <tr><td><code>X-Vcc-Timestamp</code></td><td>除健康检查外必填</td><td>Unix 时间戳，单位为<strong>秒</strong>（UTC）；与网关时间偏差须在允许窗口内。</td></tr>
-      <tr><td><code>X-Vcc-Signature</code></td><td>除健康检查外必填</td><td>第 2 节所述 HMAC-SHA256 签名（小写十六进制）。</td></tr>
-      <tr><td><code>Idempotency-Key</code></td><td>写操作必填</td><td>对 <code>POST</code>、<code>PUT</code>、<code>PATCH</code>、<code>DELETE</code> 必须携带；建议使用 UUID。</td></tr>
-      <tr><td><code>Content-Type</code></td><td>有 body 时</td><td>使用 <code>application/json</code>。</td></tr>
-      <tr><td><code>X-Trace-Id</code></td><td>可选</td><td>您侧生成的追踪 ID，便于排障。</td></tr>
-    </tbody></table>
-
-    <h2 id="s4">4. 统一响应体（成功 / 失败）</h2>
-    <h3>4.1 成功</h3>
-    <p>HTTP 状态码一般为 200。响应 JSON 外层结构如下：</p>
-    <pre><code>{
-  "code": "0",
-  "message": "OK",
-  "data": { ... 业务负载，随接口变化 ... },
-  "traceId": "字符串，用于与服务方对账排障"
-}</code></pre>
-    <p><code>data</code> 可为 JSON 对象、数组，或含 <code>items</code> 的分页对象。</p>
-    <h3>4.2 失败</h3>
-    <p>HTTP 状态码可为 4xx / 5xx。<code>code</code> 为业务错误码字符串，<code>message</code> 为人类可读说明，<code>data</code> 多为 <code>null</code>，<code>traceId</code> 建议落库以便工单。</p>
-    <table>
-      <thead><tr><th>HTTP</th><th>code（示例）</th><th>典型含义</th></tr></thead>
-      <tbody>
-      <tr><td>400</td><td><code>VALIDATION_ERROR</code> 等</td><td>参数缺失、格式非法、业务校验失败。</td></tr>
-      <tr><td>401</td><td><code>OPEN_API_CREDENTIAL_INVALID</code></td><td>访问密钥无效或已停用。</td></tr>
-      <tr><td>401</td><td><code>OPEN_API_SIGNATURE_INVALID</code></td><td>签名不匹配或缺少签名相关头。</td></tr>
-      <tr><td>401</td><td><code>OPEN_API_CLOCK_SKEW</code></td><td>时间戳超出允许偏差。</td></tr>
-      <tr><td>401</td><td><code>40113</code> / <code>OPEN_API_PATH_NOT_ALLOWED</code></td><td>路径未对当前版本开放。</td></tr>
-      <tr><td>403</td><td><code>FORBIDDEN</code></td><td>商户编码与密钥不匹配、资源归属不符等。</td></tr>
-      <tr><td>403</td><td><code>40314</code> / <code>OPEN_API_CREDENTIAL_SCOPE_DENIED</code></td><td>凭证类型与路径不匹配（发卡须 ISSUING）。</td></tr>
-      <tr><td>404</td><td>如 <code>CARD_NOT_FOUND</code>、<code>WALLET_NOT_FOUND</code></td><td>资源不存在或无权限访问。</td></tr>
-      <tr><td>409</td><td>如 <code>OPEN_API_IDEMPOTENCY_CONFLICT</code></td><td>相同幂等键与已处理请求体不一致。</td></tr>
-      <tr><td>502</td><td>如 <code>CHANNEL_TRANSACTION_FETCH_FAILED</code></td><td>渠道不可用（如实时拉取约束失败且无本地快照）。</td></tr>
-      <tr><td>429 / 503</td><td>视配置</td><td>限流或依赖不可用。</td></tr>
-    </tbody></table>
-
-    <h2 id="s5">5. 幂等与写操作</h2>
-    <p>所有写操作（<code>POST</code> / <code>PUT</code> / <code>PATCH</code> / <code>DELETE</code>）必须携带 <code>Idempotency-Key</code>。相同商户 + 相同键重复提交应返回首次成功语义。<strong>开卡任务</strong>当前按 Key 重放，不校验 body 哈希。网关按商户维度限流；<code>PATCH .../spending-constraint</code> 另有单独频率限制。</p>
-
-    <h2 id="s6">6. 接口一览</h2>
-    <table>
-      <thead><tr><th>方法</th><th>路径</th><th>摘要</th></tr></thead>
-      <tbody>
-      <tr><td>GET</td><td><code>/open/v1/health</code></td><td>健康检查（不要求签名头）</td></tr>
-      <tr><td>GET</td><td><code>/open/v1/card-products</code></td><td>已发布卡产品列表（含消费约束上限）</td></tr>
-      <tr><td>GET</td><td><code>/open/v1/card-groups</code></td><td>卡组列表（ACTIVE 自建；<strong>不含余额</strong>）</td></tr>
-      <tr><td>POST</td><td><code>/open/v1/card-groups</code></td><td>创建自建卡组</td></tr>
-      <tr><td>DELETE</td><td><code>/open/v1/card-groups/{id}</code></td><td>软删除卡组</td></tr>
-      <tr><td>POST</td><td><code>/open/v1/card-groups/{id}/fund</code></td><td>主钱包 → 卡组子池</td></tr>
-      <tr><td>POST</td><td><code>/open/v1/card-groups/{id}/release</code></td><td>卡组子池 → 主钱包</td></tr>
-      <tr><td>GET</td><td><code>/open/v1/wallets</code></td><td>钱包列表（MAIN + 卡组子池）</td></tr>
-      <tr><td>GET</td><td><code>/open/v1/wallets/{id}</code></td><td>单个钱包余额</td></tr>
-      <tr><td>GET</td><td><code>/open/v1/wallet-ledger</code></td><td>资金流水（分页）</td></tr>
-      <tr><td>POST</td><td><code>/open/v1/card-issuance-tasks</code></td><td>创建开卡任务（可选归属卡组）</td></tr>
-      <tr><td>GET</td><td><code>/open/v1/card-issuance-tasks/{id}</code></td><td>查询开卡任务</td></tr>
-      <tr><td>GET</td><td><code>/open/v1/cards</code></td><td>卡片列表（<strong>分页</strong>，可按卡组筛选）</td></tr>
-      <tr><td>GET</td><td><code>/open/v1/cards/{id}</code></td><td>卡片详情（脱敏）</td></tr>
-      <tr><td>GET</td><td><code>/open/v1/cards/{id}/sensitive</code></td><td>卡片敏感信息（完整 PAN/CVV）</td></tr>
-      <tr><td>GET</td><td><code>/open/v1/cards/{id}/spending-constraint</code></td><td>读取当前消费约束</td></tr>
-      <tr><td>GET</td><td><code>/open/v1/cards/{id}/spending-utilization</code></td><td>周期额度使用情况</td></tr>
-      <tr><td>PATCH</td><td><code>/open/v1/cards/{id}/card-group</code></td><td>开卡后挂入/移出卡组</td></tr>
-      <tr><td>POST</td><td><code>/open/v1/cards/{id}/actions</code></td><td>卡片生命周期动作</td></tr>
-      <tr><td>PATCH</td><td><code>/open/v1/cards/{id}/spending-constraint</code></td><td>卡消费控制部分更新</td></tr>
-      <tr><td>GET</td><td><code>/open/v1/transactions</code></td><td>交易分页查询</td></tr>
-      <tr><td>GET</td><td><code>/open/v1/slash-catalog/merchant-categories</code></td><td>商户类别（MCC）目录</td></tr>
-      <tr><td>GET</td><td><code>/open/v1/slash-catalog/merchants</code></td><td>受理商户 ID 本地搜索</td></tr>
-      <tr><td>GET</td><td><code>/open/v1/spending-constraint/reference</code></td><td>消费约束静态参考（MCC/国家短列表）</td></tr>
-      <tr><td>GET</td><td><code>/open/v1/mcc</code></td><td>商户类别（<strong>别名</strong>，同 merchant-categories）</td></tr>
-      <tr><td>GET</td><td><code>/open/v1/merchant-fee-rules/effective</code></td><td>查询当前生效手续费规则及试算</td></tr>
-    </tbody></table>
-    <div class="note">同一路径 <code>/open/v1/card-groups</code> 上，<strong>GET</strong> 为查询列表、<strong>POST</strong> 为创建。
-      <strong>不在</strong>本清单：钱包充值/提现/手工上账写接口、数币充值地址、充值单查询、API 凭据管理、持卡人 CRUD、开卡 body 自定义 <code>spendingConstraintJson</code>。
-      数币到账通过发卡 Webhook <code>merchant.webhook.wallet.deposit.posted</code> 通知（§8）；地址在会员门户生成。人工充值请走门户申请；API 凭据走商户门户或运营交付。</div>
-
-    <h2 id="s7">7. 接口明细（路径、请求、响应 <code>data</code>）</h2>
-    <p>下列「响应 <code>data</code>」均指统一外壳内 <code>data</code> 字段的形状。各接口含<strong>请求参数/请求体字段</strong>与<strong>响应字段</strong>表（名称、类型、含义）。写操作（POST/PATCH/DELETE）均须 <code>Idempotency-Key</code> 与签名头；GET 无请求体，但仍须签名头（健康检查除外）。</p>
-    <div class="note"><strong>请求体有无一览</strong>：有 JSON body → §7.4 创建卡组、§7.6 划入、§7.7 划出、§7.11 开卡、§7.18 挂卡组、§7.19 生命周期、§7.20 调额；无 body → 全部 GET，以及 §7.5 删除卡组。</div>
-
-    <h3 id="api-health">7.1 健康检查</h3>
-    <div class="path"><span class="method m-get">GET</span> /open/v1/health</div>
-    <h4>签名</h4><p>不要求签名相关 HTTP 头。</p>
-    <h4>请求示例</h4>
-    <pre><code>GET {MERCHANT_API_BASE}/open/v1/health
-（无请求头签名；无请求体）</code></pre>
-    <h4>响应 <code>data</code></h4>
-    <pre><code>{ "status": "UP" }</code></pre>
-    <h4>响应字段</h4>
-    <table>
-      <thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>status</code></td><td>string</td><td>服务状态；正常为 <code>UP</code>。</td></tr>
-    </tbody></table>
-
-    <h3 id="api-card-products">7.2 已发布卡产品列表</h3>
-    <div class="path"><span class="method m-get">GET</span> /open/v1/card-products</div>
-    <h4>请求示例</h4>
-    <pre><code>GET {MERCHANT_API_BASE}/open/v1/card-products
-Headers: X-Access-Key-Id / X-Vcc-Timestamp / X-Vcc-Signature（见 §2）
-（无请求体）</code></pre>
-    <h4>响应 <code>data</code></h4>
-    <p>JSON 数组，每项字段示例：</p>
-    <pre><code>[
-  {
-    "id": 1001,
-    "code": "产品代码",
-    "name": "产品名称",
-    "currency": "USD",
-    "published": true,
-    "memberVisibility": "可见性枚举",
-    "spendingConstraintCeilingJson": "{ ... 约束上限 JSON 字符串 ... }",
-    "merchantCode": "M..."
-  }
-]</code></pre>
-    <h4>响应字段（数组元素）</h4>
-    <table>
-      <thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>id</code></td><td>number</td><td>卡产品 ID，开卡时传入 <code>cardProductId</code>。</td></tr>
-      <tr><td><code>code</code></td><td>string</td><td>产品编码。</td></tr>
-      <tr><td><code>name</code></td><td>string</td><td>产品名称。</td></tr>
-      <tr><td><code>currency</code></td><td>string</td><td>记账币种，如 <code>USD</code>。</td></tr>
-      <tr><td><code>published</code></td><td>boolean</td><td>是否已发布（可开卡）。</td></tr>
-      <tr><td><code>memberVisibility</code></td><td>string</td><td>会员可见性策略枚举。</td></tr>
-      <tr><td><code>spendingConstraintCeilingJson</code></td><td>string?</td><td>可选。消费约束上限（JSON 字符串）；PATCH 调额不得超过此上限。</td></tr>
-      <tr><td><code>merchantCode</code></td><td>string</td><td>当前商户编码，与请求头一致。</td></tr>
-    </tbody></table>
-
-    <h3 id="api-card-groups">7.3 卡组列表</h3>
-    <div class="path"><span class="method m-get">GET</span> /open/v1/card-groups</div>
-    <h4>查询参数</h4>
-    <table>
-      <thead><tr><th>参数</th><th>必填</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>memberUserId</code></td><td>否</td><td>省略 = 商户主会员。</td></tr>
-    </tbody></table>
-    <h4>请求示例</h4>
-    <pre><code>GET {MERCHANT_API_BASE}/open/v1/card-groups?memberUserId=2002
-Headers: 签名头（§2）
-（无请求体）</code></pre>
-    <p>返回主会员名下 <strong>ACTIVE 自建卡组</strong>（<code>memberOwned=true</code>）。<strong>不含子池余额</strong>；余额见 §7.8 钱包列表（<code>walletRole=CARD_GROUP</code>）。</p>
-    <h4>响应 <code>data</code></h4>
-    <pre><code>[
-  {
-    "id": 9,
-    "code": "M32_abc...",
-    "name": "测试",
-    "memberOwned": true,
-    "status": "ACTIVE",
-    "merchantCode": "M..."
-  }
-]</code></pre>
-    <h4>响应字段（数组元素）</h4>
-    <table>
-      <thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>id</code></td><td>number</td><td>卡组 ID（划款、开卡归属、挂卡组时使用）。</td></tr>
-      <tr><td><code>code</code></td><td>string</td><td>卡组编码（服务端生成）。</td></tr>
-      <tr><td><code>name</code></td><td>string</td><td>卡组名称。</td></tr>
-      <tr><td><code>memberOwned</code></td><td>boolean</td><td>是否会员自建；本接口恒为 <code>true</code>。</td></tr>
-      <tr><td><code>status</code></td><td>string</td><td>如 <code>ACTIVE</code>；列表仅返回可用组。</td></tr>
-      <tr><td><code>merchantCode</code></td><td>string</td><td>商户编码。</td></tr>
-    </tbody></table>
-    <p>本接口<strong>不含余额</strong>；子池余额见 §7.8（<code>walletRole=CARD_GROUP</code>）。</p>
-
-    <h3 id="api-card-groups-create">7.4 创建卡组</h3>
-    <div class="path"><span class="method m-post">POST</span> /open/v1/card-groups</div>
-    <p>与 §7.3 共用路径，HTTP 方法为 <strong>POST</strong>。创建主会员名下新的自建卡组（服务端自动生成唯一 <code>code</code>）。</p>
-    <h4>请求头</h4><p>须带 <code>Idempotency-Key</code>。相同键重复提交返回<strong>同一卡组</strong>；同键不同 <code>name</code> 返回 409。</p>
-    <h4>查询参数</h4><p><code>memberUserId</code>：可选。</p>
-    <h4>请求示例</h4>
-    <pre><code>POST {MERCHANT_API_BASE}/open/v1/card-groups?memberUserId=2002
-Headers:
-  Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
-  X-Access-Key-Id / X-Vcc-Timestamp / X-Vcc-Signature
+url = &quot;https://api.example.com/open/v1/wallets&quot;
+headers = signed_headers(&quot;&lt;ACCESS_KEY_ID&gt;&quot;, &quot;&lt;SECRET_KEY&gt;&quot;, &quot;&lt;MERCHANT_CODE&gt;&quot;,
+                         &quot;GET&quot;, url)
+</code></pre>
+<h2 id="idempotency">4. 幂等、限流与结果恢复</h2>
+<p>写入前保存商户业务单号、稳定幂等键、HTTP 方法、路径、query 和<strong>原始请求体字节</strong>。每个新的业务动作使用独立 key；同一业务动作的重试继续使用原 key。新卡操作 key 最多 128 字符，不含控制字符，不以 <code>batch:</code> 开头。</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>情况</th>
+<th>处理方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>已知 <code>operationId</code></td>
+<td>查询原操作，不创建替代单</td>
+</tr>
+<tr>
+<td>POST 超时、断网、一般 409 或 5xx</td>
+<td>保留原 key 和原始请求，以原方法、路径、query、body 原样重放；每次 HTTP 重新生成时间戳和签名</td>
+</tr>
+<tr>
+<td>同 key 修改产品、金额、昵称、quoteId 或 body 序列化</td>
+<td>可能返回 <code>40904</code>，不能视为新业务单受理</td>
+</tr>
+<tr>
+<td><code>PENDING</code> / <code>PROCESSING</code></td>
+<td>有界轮询并退避，或等待通知；停止后续资金/状态动作</td>
+</tr>
+<tr>
+<td><code>recoveryRequired=true</code></td>
+<td>保留原单并联系支持核对，不自动释放预占或换 key 补单</td>
+</tr>
+<tr>
+<td>明确 HTTP 409 且 <code>code="40931"</code></td>
+<td>本次报价不匹配、失效或变化，未受理、未预占；重新报价和确认后提交新的请求，使用新业务幂等键</td>
+</tr>
+</tbody>
+</table></div>
+<p>不能把任意 409 或未知结果都当成“未受理”。<code>40931</code> 的响应可能被缓存，不能在原 key 下换报价后直接重试。原已受理请求按原 key、原字节恢复，不要求旧报价仍有效。</p>
+<p>HTTP 重放响应的默认缓存期为 24 小时，可按服务配置调整；<strong>缓存到期不表示业务 key 可以重复用于新操作</strong>。已经关联资金操作的 key 始终用于恢复该原单。</p>
+<p>默认访问限额为每商户每分钟 100 次，实际额度以商户配置为准。遇到 HTTP 429 / <code>42902</code> 应减少并发并退避重试，不依赖固定的重试周期或必然存在的 <code>Retry-After</code> 头。轮询采用有上限的退避策略，不持续高频查询。</p>
+<h2 id="quick-start">5. 快速开始</h2>
+<ol>
+<li>查询主钱包和当前产品，确认目标账户及 USD 可用余额。</li>
+<li>用产品 ID 和初始入卡本金获取报价，向业务方展示本金、服务费、合计和有效期。</li>
+<li>记录原订单与请求后，在报价有效期内提交一次开卡。</li>
+<li>保存返回的 <code>operationId</code>，查询或等待通知，只有 <code>SUCCEEDED</code> 才保存操作返回的 <code>cardId</code>。</li>
+<li>用该 <code>cardId</code> 查询卡资料和卡余额，再接入交易历史与账本同步。</li>
+</ol>
+<pre tabindex="0"><code class="language-http">GET {BASE}/open/v1/wallets
+GET {BASE}/open/v1/card-products
+GET {BASE}/open/v1/card-operations/quote?cardProductId=123&amp;amountMinor=1000
+POST {BASE}/open/v1/card-operations
+GET {BASE}/open/v1/card-operations/{operationId}
+GET {BASE}/open/v1/cards/{cardId}/balance
+</code></pre>
+<p>以上各请求分别签名；POST 另带幂等键和 JSON body。不要根据卡列表中“最新一张卡”猜测某次订单的发卡结果。</p>
+<h2 id="endpoint-index">6. 接口速查</h2>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>方法</th>
+<th>完整路径</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><code>/open/v1/health</code></td>
+<td>健康检查，免签</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/open/v1/card-products</code></td>
+<td>可用产品</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/open/v1/card-operations/quote</code></td>
+<td>开卡报价</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/open/v1/card-operations</code></td>
+<td>提交开卡</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/open/v1/card-operations/{operationId}</code></td>
+<td>查询卡操作</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/open/v1/cards</code></td>
+<td>卡列表</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/open/v1/cards/{cardId}</code></td>
+<td>脱敏卡详情</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/open/v1/cards/{cardId}/sensitive</code></td>
+<td>按需获取卡敏感资料</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/open/v1/cards/{cardId}/balance</code></td>
+<td>卡内余额</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/open/v1/cards/{cardId}/recharge-quote</code></td>
+<td>充值报价</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/open/v1/cards/{cardId}/recharge</code></td>
+<td>提交充值</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/open/v1/cards/{cardId}/operations</code></td>
+<td>冻结、解冻、销卡</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/open/v1/wallets</code></td>
+<td>钱包列表</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/open/v1/wallets/{walletId}</code></td>
+<td>钱包详情</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/open/v1/wallet-ledger</code></td>
+<td>钱包账本</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/open/v1/transactions</code></td>
+<td>卡交易历史</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/open/v1/card-groups</code></td>
+<td>兼容卡组列表</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/open/v1/card-groups/{cardGroupId}/release</code></td>
+<td>卡组资金划回主钱包</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/open/v1/card-issuance-tasks/{taskId}</code></td>
+<td>兼容发卡任务查询</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/open/v1/merchant-fee-rules/effective</code></td>
+<td>生效手续费规则与试算</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="products">7. 健康与产品</h2>
+<h3 id="health">7.1 健康检查</h3>
+<p><code>GET /open/v1/health</code>，无参数、免签。响应 data：</p>
+<pre tabindex="0"><code class="language-json">{&quot;status&quot;:&quot;UP&quot;}
+</code></pre>
+<p><code>status</code> 为字符串服务状态。该检查用于连通性，不证明产品权限、发卡处理或资金链路已可用。</p>
+<h3 id="card-products">7.2 查询可用产品</h3>
+<p><code>GET /open/v1/card-products</code>，无参数，需签名。返回当前商户可见、已发布的产品数组。</p>
+<pre tabindex="0"><code class="language-json">[{&quot;id&quot;:123,&quot;code&quot;:&quot;USD_SINGLE_CARD&quot;,&quot;name&quot;:&quot;USD单卡余额产品&quot;,&quot;currency&quot;:&quot;USD&quot;,&quot;processor&quot;:&quot;&lt;服务标识&gt;&quot;,&quot;fundingMode&quot;:&quot;SINGLE_CARD_BALANCE&quot;,&quot;initialAmountRequired&quot;:true,&quot;supportsSpendingConstraints&quot;:false,&quot;minimumInitialAmountMinor&quot;:1000,&quot;minimumRechargeAmountMinor&quot;:0,&quot;rechargeFeeMinor&quot;:20,&quot;published&quot;:true,&quot;memberVisibility&quot;:&quot;ALL_MEMBERS&quot;,&quot;merchantCode&quot;:&quot;M_EXAMPLE&quot;}]
+</code></pre>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>字段</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>integer(int64)</td>
+<td>产品 ID，作为 <code>cardProductId</code></td>
+</tr>
+<tr>
+<td><code>code</code></td>
+<td>string</td>
+<td>产品编码</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string / null</td>
+<td>产品名称</td>
+</tr>
+<tr>
+<td><code>currency</code></td>
+<td>string</td>
+<td>币种，当前单卡余额产品为 USD</td>
+</tr>
+<tr>
+<td><code>processor</code></td>
+<td>string</td>
+<td>服务标识，不透明值；不根据其名称推导能力</td>
+</tr>
+<tr>
+<td><code>fundingMode</code></td>
+<td>string</td>
+<td><code>SINGLE_CARD_BALANCE</code> 表示单卡余额</td>
+</tr>
+<tr>
+<td><code>initialAmountRequired</code></td>
+<td>boolean</td>
+<td>是否必须提供初始本金</td>
+</tr>
+<tr>
+<td><code>supportsSpendingConstraints</code></td>
+<td>boolean</td>
+<td>当前为 false，不提供消费约束设置</td>
+</tr>
+<tr>
+<td><code>minimumInitialAmountMinor</code></td>
+<td>integer(int64)</td>
+<td>最低初始本金，USD 分</td>
+</tr>
+<tr>
+<td><code>minimumRechargeAmountMinor</code></td>
+<td>integer(int64)</td>
+<td>最低充值本金；即使返回 0，充值仍需大于 0</td>
+</tr>
+<tr>
+<td><code>rechargeFeeMinor</code></td>
+<td>integer(int64)</td>
+<td>产品充值服务费参考值，确认时以当次报价为准</td>
+</tr>
+<tr>
+<td><code>published</code></td>
+<td>boolean</td>
+<td>是否已发布</td>
+</tr>
+<tr>
+<td><code>memberVisibility</code></td>
+<td>string</td>
+<td>产品可见范围标识</td>
+</tr>
+<tr>
+<td><code>merchantCode</code></td>
+<td>string</td>
+<td>当前商户编码</td>
+</tr>
+</tbody>
+</table></div>
+<p>示例金额和费用仅用于说明字段，不能作为固定费率。开卡来源由选定产品决定，请使用实际返回的产品 ID。</p>
+<h2 id="operations">8. 开卡、充值与卡操作</h2>
+<h3 id="create-quote">8.1 开卡报价</h3>
+<p><code>GET /open/v1/card-operations/quote</code>，需签名。</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>Query 参数</th>
+<th>类型</th>
+<th>必填</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cardProductId</code></td>
+<td>integer(int64)</td>
+<td>是</td>
+<td>正整数产品 ID</td>
+</tr>
+<tr>
+<td><code>amountMinor</code></td>
+<td>integer(int64)</td>
+<td>是</td>
+<td>正整数初始本金，USD 分，满足产品最低额</td>
+</tr>
+</tbody>
+</table></div>
+<pre tabindex="0"><code class="language-http">GET {BASE}/open/v1/card-operations/quote?cardProductId=123&amp;amountMinor=1000
+</code></pre>
+<p>响应 data 使用报价模型：</p>
+<pre tabindex="0"><code class="language-json">{&quot;amountMinor&quot;:1000,&quot;feeMinor&quot;:20,&quot;totalMinor&quot;:1020,&quot;currency&quot;:&quot;USD&quot;,&quot;minInitialAmountMinor&quot;:1000,&quot;quoteId&quot;:&quot;11111111-2222-4333-8444-555555555555&quot;,&quot;expiresAt&quot;:&quot;2026-11-17T08:05:00Z&quot;}
+</code></pre>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>字段</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>amountMinor</code></td>
+<td>integer(int64)</td>
+<td>本次本金</td>
+</tr>
+<tr>
+<td><code>feeMinor</code></td>
+<td>integer(int64)</td>
+<td>本次服务费</td>
+</tr>
+<tr>
+<td><code>totalMinor</code></td>
+<td>integer(int64)</td>
+<td>需确认的主钱包预占合计，即本金加服务费</td>
+</tr>
+<tr>
+<td><code>currency</code></td>
+<td>string</td>
+<td>USD</td>
+</tr>
+<tr>
+<td><code>minInitialAmountMinor</code></td>
+<td>integer(int64)</td>
+<td>本产品最低初始金额参考值</td>
+</tr>
+<tr>
+<td><code>quoteId</code></td>
+<td>string</td>
+<td>本次报价 ID，最长 36 字符</td>
+</tr>
+<tr>
+<td><code>expiresAt</code></td>
+<td>string(date-time)</td>
+<td>报价到期时间</td>
+</tr>
+</tbody>
+</table></div>
+<p>报价有效 <strong>300 秒</strong>，仅对对应账户、产品、操作和本金有效。示例 quoteId 不可直接提交。主钱包可用余额需覆盖 <code>totalMinor</code>；金额、费用或产品变化时重新报价并确认。</p>
+<h3 id="create-card">8.2 提交开卡</h3>
+<p><code>POST /open/v1/card-operations</code>，需签名及 <code>Idempotency-Key</code>。</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>JSON 字段</th>
+<th>类型</th>
+<th>必填</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cardProductId</code></td>
+<td>integer(int64)</td>
+<td>是</td>
+<td>正整数产品 ID</td>
+</tr>
+<tr>
+<td><code>initialAmountMinor</code></td>
+<td>integer(int64)</td>
+<td>是</td>
+<td>正整数初始本金，USD 分</td>
+</tr>
+<tr>
+<td><code>displayName</code></td>
+<td>string / null</td>
+<td>否</td>
+<td>卡片展示名，最多 128 字符；恢复请求保持原值</td>
+</tr>
+<tr>
+<td><code>quoteId</code></td>
+<td>string</td>
+<td>是</td>
+<td>对应本次申请的有效报价 ID，最长 36 字符</td>
+</tr>
+</tbody>
+</table></div>
+<pre tabindex="0"><code class="language-http">POST {BASE}/open/v1/card-operations
+Idempotency-Key: create-order-example-001
 Content-Type: application/json
 
-{ "name": "营销专用卡组" }</code></pre>
-    <h4>请求体</h4>
-    <pre><code>{ "name": "营销专用卡组" }</code></pre>
-    <table>
-      <thead><tr><th>字段</th><th>必填</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>name</code></td><td>是</td><td>卡组名称，1–128 字符，trim 后非空。</td></tr>
-    </tbody></table>
-    <h4>响应 <code>data</code></h4>
-    <pre><code>{
-  "id": 12,
-  "code": "M32_a1b2c3...",
-  "name": "营销专用卡组",
-  "status": "ACTIVE",
-  "memberOwned": true,
-  "merchantCode": "M..."
-}</code></pre>
-    <h4>响应字段</h4>
-    <table>
-      <thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>id</code></td><td>number</td><td>新建卡组 ID。</td></tr>
-      <tr><td><code>code</code></td><td>string</td><td>新建卡组编码。</td></tr>
-      <tr><td><code>name</code></td><td>string</td><td>名称（与请求一致）。</td></tr>
-      <tr><td><code>status</code></td><td>string</td><td>一般为 <code>ACTIVE</code>。</td></tr>
-      <tr><td><code>memberOwned</code></td><td>boolean</td><td><code>true</code>。</td></tr>
-      <tr><td><code>merchantCode</code></td><td>string</td><td>商户编码。</td></tr>
-    </tbody></table>
-
-    <h3 id="api-card-groups-delete">7.5 删除卡组</h3>
-    <div class="path"><span class="method m-delete">DELETE</span> /open/v1/card-groups/{id}</div>
-    <p>软删除（<code>status=INACTIVE</code>），列表接口不再返回。删除前须：<strong>① 无绑卡</strong>；<strong>② 全币种子池余额为 0</strong>（须先调用 §7.7 <code>release</code> 划回主钱包，<strong>不会</strong>自动清余额）。</p>
-    <h4>请求头</h4><p>须带 <code>Idempotency-Key</code>。</p>
-    <h4>查询参数</h4><p><code>memberUserId</code>：可选。</p>
-    <h4>请求示例</h4>
-    <pre><code>DELETE {MERCHANT_API_BASE}/open/v1/card-groups/12?memberUserId=2002
-Headers:
-  Idempotency-Key: 550e8400-e29b-41d4-a716-446655440001
-  X-Access-Key-Id / X-Vcc-Timestamp / X-Vcc-Signature
-（无请求体；签名时 body 哈希按空字节计算）</code></pre>
-    <h4>请求体</h4><p><strong>无</strong>。请勿发送 <code>{}</code>（空 JSON 与空 body 的 SHA-256 不同，会导致验签失败）。</p>
-    <h4>响应 <code>data</code></h4>
-    <pre><code>{
-  "id": 12,
-  "status": "INACTIVE",
-  "merchantCode": "M..."
-}</code></pre>
-    <h4>响应字段</h4>
-    <table>
-      <thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>id</code></td><td>number</td><td>被删除的卡组 ID。</td></tr>
-      <tr><td><code>status</code></td><td>string</td><td>固定 <code>INACTIVE</code>（软删除）。</td></tr>
-      <tr><td><code>merchantCode</code></td><td>string</td><td>商户编码。</td></tr>
-    </tbody></table>
-    <table>
-      <thead><tr><th>场景</th><th>HTTP</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td>仍有卡片</td><td>400</td><td>卡组内仍有卡片，请先移出（<code>PATCH .../card-group</code>）</td></tr>
-      <tr><td>子池有余额</td><td>400</td><td>请先 <code>POST .../release</code> 划回主钱包</td></tr>
-    </tbody></table>
-
-    <h3 id="api-fund">7.6 划入子池（主钱包 → 卡组）</h3>
-    <div class="path"><span class="method m-post">POST</span> /open/v1/card-groups/{id}/fund</div>
-    <h4>请求头</h4><p>须带 <code>Idempotency-Key</code>。</p>
-    <h4>查询参数</h4><p><code>memberUserId</code>：可选。</p>
-    <h4>请求示例</h4>
-    <pre><code>POST {MERCHANT_API_BASE}/open/v1/card-groups/9/fund?memberUserId=2002
-Headers:
-  Idempotency-Key: 550e8400-e29b-41d4-a716-446655440002
-  Content-Type: application/json
-  签名头（§2）
-
-{
-  "currency": "USD",
-  "amount": "100.00"
-}</code></pre>
-    <h4>请求体</h4>
-    <pre><code>{
-  "currency": "USD",
-  "amount": "100.00"
-}</code></pre>
-    <table>
-      <thead><tr><th>字段</th><th>必填</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>currency</code></td><td>是</td><td>如 <code>USD</code>。</td></tr>
-      <tr><td><code>amount</code></td><td>是</td><td>十进制金额字符串，须 &gt; 0。</td></tr>
-    </tbody></table>
-    <h4>响应 <code>data</code></h4>
-    <pre><code>{
-  "id": "8842",
-  "reference": "wo_8842",
-  "status": "SUCCEEDED",
-  "type": "CARD_GROUP_FUND",
-  "currency": "USD",
-  "amountMinor": 10000,
-  "amount": "100.00",
-  "merchantCode": "M..."
-}</code></pre>
-    <h4>响应字段</h4>
-    <table>
-      <thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>id</code></td><td>string</td><td>钱包操作 ID。</td></tr>
-      <tr><td><code>reference</code></td><td>string</td><td>业务引用，形如 <code>wo_{id}</code>。</td></tr>
-      <tr><td><code>status</code></td><td>string</td><td>如 <code>SUCCEEDED</code> / <code>FAILED</code> / <code>PROCESSING</code>。</td></tr>
-      <tr><td><code>type</code></td><td>string</td><td>固定 <code>CARD_GROUP_FUND</code>。</td></tr>
-      <tr><td><code>currency</code></td><td>string</td><td>币种。</td></tr>
-      <tr><td><code>amountMinor</code></td><td>number</td><td>金额（最小货币单位，如美分）。</td></tr>
-      <tr><td><code>amount</code></td><td>string</td><td>金额（两位小数）。</td></tr>
-      <tr><td><code>failureReason</code></td><td>string?</td><td>失败时原因。</td></tr>
-      <tr><td><code>merchantCode</code></td><td>string</td><td>商户编码。</td></tr>
-    </tbody></table>
-    <p>主钱包余额不足时返回 400 <code>WALLET_INSUFFICIENT_FUNDS</code>。划款后可通过 §7.8 钱包、§7.10 流水确认。</p>
-
-    <h3 id="api-release">7.7 划出子池（卡组 → 主钱包）</h3>
-    <div class="path"><span class="method m-post">POST</span> /open/v1/card-groups/{id}/release</div>
-    <h4>请求头</h4><p>须带 <code>Idempotency-Key</code>。</p>
-    <h4>查询参数</h4><p><code>memberUserId</code>：可选。</p>
-    <h4>请求示例</h4>
-    <pre><code>POST {MERCHANT_API_BASE}/open/v1/card-groups/9/release?memberUserId=2002
-Headers:
-  Idempotency-Key: 550e8400-e29b-41d4-a716-446655440003
-  Content-Type: application/json
-  签名头（§2）
-
-{
-  "currency": "USD",
-  "amount": "50.00"
-}</code></pre>
-    <h4>请求体</h4>
-    <pre><code>{
-  "currency": "USD",
-  "amount": "50.00"
-}</code></pre>
-    <table>
-      <thead><tr><th>字段</th><th>必填</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>currency</code></td><td>是</td><td>如 <code>USD</code>。</td></tr>
-      <tr><td><code>amount</code></td><td>是</td><td>十进制金额字符串，须 &gt; 0。</td></tr>
-    </tbody></table>
-    <h4>响应 <code>data</code></h4>
-    <pre><code>{
-  "id": "8843",
-  "reference": "wo_8843",
-  "status": "SUCCEEDED",
-  "type": "CARD_GROUP_RELEASE",
-  "currency": "USD",
-  "amountMinor": 5000,
-  "amount": "50.00",
-  "merchantCode": "M..."
-}</code></pre>
-    <h4>响应字段</h4>
-    <table>
-      <thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>id</code></td><td>string</td><td>钱包操作 ID。</td></tr>
-      <tr><td><code>reference</code></td><td>string</td><td>业务引用，形如 <code>wo_{id}</code>。</td></tr>
-      <tr><td><code>status</code></td><td>string</td><td>如 <code>SUCCEEDED</code> / <code>FAILED</code> / <code>PROCESSING</code>。</td></tr>
-      <tr><td><code>type</code></td><td>string</td><td>固定 <code>CARD_GROUP_RELEASE</code>。</td></tr>
-      <tr><td><code>currency</code></td><td>string</td><td>币种。</td></tr>
-      <tr><td><code>amountMinor</code></td><td>number</td><td>金额（最小货币单位）。</td></tr>
-      <tr><td><code>amount</code></td><td>string</td><td>金额（两位小数）。</td></tr>
-      <tr><td><code>failureReason</code></td><td>string?</td><td>失败时原因。</td></tr>
-      <tr><td><code>merchantCode</code></td><td>string</td><td>商户编码。</td></tr>
-    </tbody></table>
-    <p>子池余额不足时返回 400 <code>WALLET_INSUFFICIENT_FUNDS</code>。</p>
-
-    <h3 id="api-wallets">7.8 钱包列表</h3>
-    <div class="path"><span class="method m-get">GET</span> /open/v1/wallets</div>
-    <h4>查询参数</h4>
-    <table>
-      <thead><tr><th>参数</th><th>必填</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>memberUserId</code></td><td>否</td><td>指定则返回该用户钱包；省略则返回商户下全部（<strong>1 个 MAIN + N 个 CARD_GROUP 子池</strong>）。</td></tr>
-    </tbody></table>
-    <h4>请求示例</h4>
-    <pre><code>GET {MERCHANT_API_BASE}/open/v1/wallets?memberUserId=2002
-Headers: 签名头（§2）
-（无请求体）</code></pre>
-    <h4>响应 <code>data</code></h4>
-    <pre><code>[
-  {
-    "walletId": "54",
-    "currency": "USD",
-    "availableAmountMinor": 12122144,
-    "availableAmount": "121221.44",
-    "cardGroupId": 0,
-    "walletRole": "MAIN",
-    "cardGroupName": null,
-    "merchantCode": "M..."
-  },
-  {
-    "walletId": "55",
-    "currency": "USD",
-    "availableAmountMinor": 100000,
-    "availableAmount": "1000.00",
-    "cardGroupId": 9,
-    "walletRole": "CARD_GROUP",
-    "cardGroupName": "测试",
-    "merchantCode": "M..."
-  }
-]</code></pre>
-    <h4>响应字段（数组元素）</h4>
-    <table>
-      <thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>walletId</code></td><td>string</td><td>钱包账户 ID（§7.9 路径参数）。</td></tr>
-      <tr><td><code>currency</code></td><td>string</td><td>币种，如 <code>USD</code>。</td></tr>
-      <tr><td><code>availableAmountMinor</code></td><td>number</td><td>可用余额（最小货币单位）。</td></tr>
-      <tr><td><code>availableAmount</code></td><td>string</td><td>可用余额（两位小数）。</td></tr>
-      <tr><td><code>cardGroupId</code></td><td>number</td><td><code>0</code> = 主钱包；<code>&gt;0</code> = 对应卡组子池 ID。</td></tr>
-      <tr><td><code>walletRole</code></td><td>string</td><td><code>MAIN</code> 或 <code>CARD_GROUP</code>。</td></tr>
-      <tr><td><code>cardGroupName</code></td><td>string?</td><td>卡组名称；主钱包为 <code>null</code>。</td></tr>
-      <tr><td><code>merchantCode</code></td><td>string</td><td>商户编码。</td></tr>
-    </tbody></table>
-
-    <h3 id="api-wallet-get">7.9 单个钱包</h3>
-    <div class="path"><span class="method m-get">GET</span> /open/v1/wallets/{id}</div>
-    <h4>请求示例</h4>
-    <pre><code>GET {MERCHANT_API_BASE}/open/v1/wallets/54
-Headers: 签名头（§2）
-（无请求体）</code></pre>
-    <h4>响应 <code>data</code></h4>
-    <pre><code>{
-  "walletId": "54",
-  "currency": "USD",
-  "availableAmountMinor": 12122144,
-  "availableAmount": "121221.44",
-  "cardGroupId": 0,
-  "walletRole": "MAIN",
-  "cardGroupName": null,
-  "merchantCode": "M..."
-}</code></pre>
-    <h4>响应字段</h4>
-    <p>与 §7.8 列表元素相同。</p>
-
-    <h3 id="api-ledger">7.10 资金流水（分页）</h3>
-    <div class="path"><span class="method m-get">GET</span> /open/v1/wallet-ledger</div>
-    <h4>查询参数</h4>
-    <table>
-      <thead><tr><th>参数</th><th>必填</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>memberUserId</code></td><td>否</td><td>省略时使用商户主会员。</td></tr>
-      <tr><td><code>page</code> / <code>size</code></td><td>否</td><td>默认 <code>page=0</code>、<code>size=20</code>。</td></tr>
-      <tr><td><code>sort</code></td><td>否</td><td><code>asc</code> 或 <code>desc</code>，默认 <code>desc</code>。</td></tr>
-    </tbody></table>
-    <h4>请求示例</h4>
-    <pre><code>GET {MERCHANT_API_BASE}/open/v1/wallet-ledger?memberUserId=2002&amp;page=0&amp;size=20&amp;sort=desc
-Headers: 签名头（§2）
-（无请求体）</code></pre>
-    <h4>响应 <code>data</code></h4>
-    <pre><code>{
-  "total": 100,
-  "page": 0,
-  "size": 20,
-  "sort": "desc",
-  "merchantCode": "M...",
-  "items": [ { "id": "1", "amountMinor": -500, "walletAccountId": "55", "cardGroupId": "9", ... } ]
-}</code></pre>
-    <h4>响应字段</h4>
-    <table>
-      <thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>total</code></td><td>number</td><td>总条数。</td></tr>
-      <tr><td><code>page</code></td><td>number</td><td>当前页（从 0 起）。</td></tr>
-      <tr><td><code>size</code></td><td>number</td><td>本页实际条数（非请求 size）。</td></tr>
-      <tr><td><code>sort</code></td><td>string</td><td><code>asc</code> / <code>desc</code>。</td></tr>
-      <tr><td><code>merchantCode</code></td><td>string</td><td>商户编码。</td></tr>
-      <tr><td><code>items</code></td><td>array</td><td>流水明细，见下表。</td></tr>
-    </tbody></table>
-    <h4>响应字段（<code>items[]</code>）</h4>
-    <table>
-      <thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>id</code></td><td>string</td><td>流水行 ID。</td></tr>
-      <tr><td><code>occurredAt</code></td><td>string</td><td>发生时间（ISO-8601）。</td></tr>
-      <tr><td><code>amountMinor</code></td><td>number</td><td>带符号金额（最小单位）；正=入账，负=出账。</td></tr>
-      <tr><td><code>amount</code></td><td>string</td><td>绝对值金额（两位小数）。</td></tr>
-      <tr><td><code>direction</code></td><td>string</td><td><code>CREDIT</code>（入）或 <code>DEBIT</code>（出）。</td></tr>
-      <tr><td><code>balanceAfterMinor</code></td><td>number</td><td>变动后余额（最小单位）。</td></tr>
-      <tr><td><code>balanceAfter</code></td><td>string</td><td>变动后余额（两位小数）。</td></tr>
-      <tr><td><code>entryType</code></td><td>string</td><td>分录类型（如划款、授权扣款、冲正释放等）。</td></tr>
-      <tr><td><code>referenceType</code></td><td>string?</td><td>关联业务类型。</td></tr>
-      <tr><td><code>referenceId</code></td><td>string?</td><td>关联业务 ID。</td></tr>
-      <tr><td><code>businessRef</code></td><td>string?</td><td>业务引用号。</td></tr>
-      <tr><td><code>walletAccountId</code></td><td>string</td><td>所属钱包账户 ID。</td></tr>
-      <tr><td><code>cardGroupId</code></td><td>string</td><td>卡组 ID；主钱包为 <code>"0"</code>。</td></tr>
-    </tbody></table>
-
-    <h3 id="api-issuance-create">7.11 创建开卡任务</h3>
-    <div class="path"><span class="method m-post">POST</span> /open/v1/card-issuance-tasks</div>
-    <h4>请求头</h4><p>须带 <code>Idempotency-Key</code>。</p>
-    <h4>请求示例</h4>
-    <pre><code>POST {MERCHANT_API_BASE}/open/v1/card-issuance-tasks
-Headers:
-  Idempotency-Key: 550e8400-e29b-41d4-a716-446655440010
-  Content-Type: application/json
-  签名头（§2）
-
-{
-  "cardProductId": 1001,
-  "memberUserId": 2002,
-  "platformCardGroupId": 9
-}</code></pre>
-    <h4>请求体（仅允许下列字段）</h4>
-    <pre><code>{
-  "cardProductId": 1001,
-  "memberUserId": 2002,
-  "platformCardGroupId": 9
-}</code></pre>
-    <table>
-      <thead><tr><th>字段</th><th>必填</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>cardProductId</code></td><td>是</td><td>已发布卡产品 ID。</td></tr>
-      <tr><td><code>memberUserId</code></td><td>否</td><td>省略 = 商户主会员。</td></tr>
-      <tr><td><code>platformCardGroupId</code></td><td>否</td><td>开卡后归属卡组；省略/null = 主钱包扣款。须为本人 ACTIVE 自建卡组；开卡前请通过 §7.6 向子池划入足够余额。</td></tr>
-    </tbody></table>
-    <p>不接受任意 <code>spendingConstraintJson</code> 或其他未列字段。</p>
-    <h4>响应 <code>data</code></h4>
-    <pre><code>{
-  "id": "任务ID",
-  "merchantCode": "M...",
-  "status": "SUCCEEDED",
-  "channelRequestId": "...",
-  "appliedFeeBreakdown": { "feeType": "CARD_ISSUANCE", "feeMinor": "...", "summary": "..." }
-}</code></pre>
-    <h4>响应字段</h4>
-    <table>
-      <thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>id</code></td><td>string</td><td>开卡任务 ID（用于 §7.12 轮询）。</td></tr>
-      <tr><td><code>merchantCode</code></td><td>string</td><td>商户编码。</td></tr>
-      <tr><td><code>status</code></td><td>string</td><td>任务状态，如 <code>PENDING</code> / <code>SUCCEEDED</code> / <code>FAILED</code>。</td></tr>
-      <tr><td><code>channelRequestId</code></td><td>string?</td><td>渠道侧请求 ID。</td></tr>
-      <tr><td><code>appliedFeeBreakdown</code></td><td>object</td><td>开卡手续费试算/落地摘要，见下表。</td></tr>
-    </tbody></table>
-    <h4>响应字段（<code>appliedFeeBreakdown</code>）</h4>
-    <table>
-      <thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>feeType</code></td><td>string</td><td>固定 <code>CARD_ISSUANCE</code>。</td></tr>
-      <tr><td><code>source</code></td><td>string</td><td>规则来源：<code>MERCHANT</code> / <code>DEFAULT</code>。</td></tr>
-      <tr><td><code>ruleId</code></td><td>string</td><td>规则 ID。</td></tr>
-      <tr><td><code>ruleTable</code></td><td>string</td><td>规则表名。</td></tr>
-      <tr><td><code>currency</code></td><td>string</td><td>计费币种。</td></tr>
-      <tr><td><code>calculationMode</code></td><td>string</td><td>计费模式。</td></tr>
-      <tr><td><code>fixedFeeMinor</code></td><td>string</td><td>固定费（最小单位，字符串）。</td></tr>
-      <tr><td><code>ratePercent</code></td><td>—</td><td>费率（若有）。</td></tr>
-      <tr><td><code>feeMinor</code></td><td>string</td><td>实际手续费（最小单位）。</td></tr>
-      <tr><td><code>summary</code></td><td>string</td><td>人类可读摘要。</td></tr>
-      <tr><td><code>merchantCode</code></td><td>string</td><td>商户编码。</td></tr>
-    </tbody></table>
-
-    <h3 id="api-issuance-get">7.12 查询开卡任务</h3>
-    <div class="path"><span class="method m-get">GET</span> /open/v1/card-issuance-tasks/{id}</div>
-    <h4>请求示例</h4>
-    <pre><code>GET {MERCHANT_API_BASE}/open/v1/card-issuance-tasks/12345
-Headers: 签名头（§2）
-（无请求体）</code></pre>
-    <h4>响应 <code>data</code></h4>
-    <pre><code>{ "id": "...", "merchantCode": "M...", "status": "...", "channelRequestId": "..." }</code></pre>
-    <h4>响应字段</h4>
-    <table>
-      <thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>id</code></td><td>string</td><td>开卡任务 ID。</td></tr>
-      <tr><td><code>merchantCode</code></td><td>string</td><td>商户编码。</td></tr>
-      <tr><td><code>status</code></td><td>string</td><td>任务状态。</td></tr>
-      <tr><td><code>channelRequestId</code></td><td>string?</td><td>渠道侧请求 ID。</td></tr>
-    </tbody></table>
-    <p>本接口不含 <code>appliedFeeBreakdown</code>；手续费以创建时响应为准。</p>
-
-    <h3 id="api-cards">7.13 卡片列表（分页）</h3>
-    <div class="path"><span class="method m-get">GET</span> /open/v1/cards</div>
-    <h4>查询参数</h4>
-    <table>
-      <thead><tr><th>参数</th><th>必填</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>page</code> / <code>size</code></td><td>否</td><td>默认 <code>0</code> / <code>20</code>，<code>size</code> 最大 100。</td></tr>
-      <tr><td><code>cardGroupId</code></td><td>否</td><td>不传 = 全部；<code>0</code> = 未归属主钱包；<code>&gt;0</code> = 指定卡组。</td></tr>
-    </tbody></table>
-    <h4>请求示例</h4>
-    <pre><code>GET {MERCHANT_API_BASE}/open/v1/cards?page=0&amp;size=20&amp;cardGroupId=9
-Headers: 签名头（§2）
-（无请求体）</code></pre>
-    <h4>响应 <code>data</code></h4>
-    <p><strong>分页对象</strong>（非数组）：</p>
-    <pre><code>{
-  "total": 42,
-  "page": 0,
-  "size": 20,
-  "merchantCode": "M...",
-  "items": [
-    {
-      "id": "卡账户ID",
-      "displayName": null,
-      "panMasked": "******4242",
-      "panLast4": "4242",
-      "status": "ACTIVE",
-      "cardProductId": 1001,
-      "platformCardGroupId": 9,
-      "cardProductName": "产品名",
-      "channelDisplayName": "VCC",
-      "channelCode": "VCC",
-      "cardGroupName": "测试",
-      "cardGroupCode": "M32_...",
-      "cardGroupMemberOwned": true,
-      "cardGroupLabel": "我的卡组 · 测试",
-      "merchantCode": "M..."
-    }
-  ]
-}</code></pre>
-    <h4>响应字段（分页外壳）</h4>
-    <table>
-      <thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>total</code></td><td>number</td><td>总卡数。</td></tr>
-      <tr><td><code>page</code></td><td>number</td><td>当前页。</td></tr>
-      <tr><td><code>size</code></td><td>number</td><td>页大小。</td></tr>
-      <tr><td><code>merchantCode</code></td><td>string</td><td>商户编码。</td></tr>
-      <tr><td><code>items</code></td><td>array</td><td>卡片列表，见下表。</td></tr>
-    </tbody></table>
-    <h4>响应字段（<code>items[]</code> / 卡片详情）</h4>
-    <table>
-      <thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>id</code></td><td>string</td><td>卡账户 ID（后续卡相关接口路径参数）。</td></tr>
-      <tr><td><code>displayName</code></td><td>string?</td><td>展示名。</td></tr>
-      <tr><td><code>panMasked</code></td><td>string?</td><td>掩码卡号。</td></tr>
-      <tr><td><code>panLast4</code></td><td>string?</td><td>卡号后四位。</td></tr>
-      <tr><td><code>status</code></td><td>string</td><td>卡状态，如 <code>ACTIVE</code> / <code>FROZEN</code> / <code>CLOSED</code>。</td></tr>
-      <tr><td><code>cardProductId</code></td><td>number</td><td>卡产品 ID。</td></tr>
-      <tr><td><code>cardProductName</code></td><td>string?</td><td>卡产品名称。</td></tr>
-      <tr><td><code>platformCardGroupId</code></td><td>number?</td><td>所属卡组 ID；未归属为 <code>null</code>。</td></tr>
-      <tr><td><code>channelDisplayName</code></td><td>string</td><td>渠道展示名。</td></tr>
-      <tr><td><code>channelCode</code></td><td>string?</td><td>渠道编码，如 <code>SLASH</code>。</td></tr>
-      <tr><td><code>cardGroupName</code></td><td>string?</td><td>卡组名称。</td></tr>
-      <tr><td><code>cardGroupCode</code></td><td>string?</td><td>卡组编码。</td></tr>
-      <tr><td><code>cardGroupMemberOwned</code></td><td>boolean</td><td>是否会员自建卡组。</td></tr>
-      <tr><td><code>cardGroupLabel</code></td><td>string</td><td>人类可读卡组标签。</td></tr>
-      <tr><td><code>merchantCode</code></td><td>string</td><td>商户编码。</td></tr>
-    </tbody></table>
-
-    <h3 id="api-card-get">7.14 卡片详情</h3>
-    <div class="path"><span class="method m-get">GET</span> /open/v1/cards/{id}</div>
-    <h4>请求示例</h4>
-    <pre><code>GET {MERCHANT_API_BASE}/open/v1/cards/c_2m379xtlg5p73
-Headers: 签名头（§2）
-（无请求体）</code></pre>
-    <h4>响应 <code>data</code></h4>
-    <pre><code>{
-  "id": "c_2m379xtlg5p73",
-  "panMasked": "******0548",
-  "panLast4": "0548",
-  "status": "ACTIVE",
-  "cardProductId": 1001,
-  "platformCardGroupId": 9,
-  "cardProductName": "产品名",
-  "channelCode": "SLASH",
-  "cardGroupLabel": "我的卡组 · 测试",
-  "merchantCode": "M..."
-}</code></pre>
-    <p>与 §7.13 列表项结构一致；不包含完整 PAN/CVV。字段含义见 §7.13。</p>
-
-    <h3 id="api-card-sensitive">7.15 卡片敏感信息</h3>
-    <div class="path"><span class="method m-get">GET</span> /open/v1/cards/{id}/sensitive</div>
-    <h4>查询参数</h4>
-    <table>
-      <thead><tr><th>参数</th><th>必填</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>memberUserId</code></td><td>否</td><td>若传入须与卡片归属用户一致，否则 403。</td></tr>
-    </tbody></table>
-    <h4>请求示例</h4>
-    <pre><code>GET {MERCHANT_API_BASE}/open/v1/cards/c_2m379xtlg5p73/sensitive?memberUserId=2002
-Headers: 签名头（§2）
-（无请求体）</code></pre>
-    <h4>响应 <code>data</code></h4>
-    <pre><code>{
-  "cardId": "卡ID",
-  "channelCode": "VCC",
-  "pan": "完整卡号",
-  "cvv": "CVV",
-  "expMonth": 12,
-  "expYear": 2029,
-  "merchantCode": "M..."
-}</code></pre>
-    <h4>响应字段</h4>
-    <table>
-      <thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>cardId</code></td><td>string</td><td>卡账户 ID。</td></tr>
-      <tr><td><code>channelCode</code></td><td>string</td><td>渠道编码。</td></tr>
-      <tr><td><code>pan</code></td><td>string</td><td>完整卡号（PCI 敏感）。</td></tr>
-      <tr><td><code>cvv</code></td><td>string</td><td>CVV（PCI 敏感）。</td></tr>
-      <tr><td><code>expMonth</code></td><td>number</td><td>过期月（1–12）。</td></tr>
-      <tr><td><code>expYear</code></td><td>number</td><td>过期年（四位）。</td></tr>
-      <tr><td><code>merchantCode</code></td><td>string</td><td>商户编码。</td></tr>
-    </tbody></table>
-    <div class="note">该接口返回完整 PAN/CVV，请仅在必要场景调用，并确保传输与存储符合 PCI 相关要求。</div>
-
-    <h3 id="api-constraint-get">7.16 读取卡消费约束</h3>
-    <div class="path"><span class="method m-get">GET</span> /open/v1/cards/{id}/spending-constraint</div>
-    <h4>查询参数</h4><p><code>memberUserId</code>：可选。</p>
-    <p>适用于平台已开通消费约束能力的卡片。</p>
-    <h4>请求示例</h4>
-    <pre><code>GET {MERCHANT_API_BASE}/open/v1/cards/c_2m379xtlg5p73/spending-constraint?memberUserId=2002
-Headers: 签名头（§2）
-（无请求体）</code></pre>
-    <h4>响应 <code>data</code></h4>
-    <pre><code>{
-  "source": "LIVE",
-  "spendingConstraint": {
-    "spendingRule": {
-      "utilizationLimit": {
-        "preset": "collective",
-        "timezone": "UTC",
-        "limitAmount": { "amountCents": 23500 }
-      }
-    }
-  },
-  "merchantCode": "M..."
-}</code></pre>
-    <h4>响应字段</h4>
-    <table>
-      <thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>source</code></td><td>string</td><td><code>LIVE</code>（实时渠道）或 <code>CACHED</code>（缓存兜底）。</td></tr>
-      <tr><td><code>spendingConstraint</code></td><td>object?</td><td>渠道消费约束子树（与 Slash 同构）；可作为 §7.20 PATCH 参考。</td></tr>
-      <tr><td><code>channelError</code></td><td>string?</td><td>仅 <code>CACHED</code> 时：渠道错误信息。</td></tr>
-      <tr><td><code>cachedAt</code></td><td>string?</td><td>仅缓存时：缓存时间（ISO）。</td></tr>
-      <tr><td><code>nonRealtime</code></td><td>boolean?</td><td>缓存时为 <code>true</code>。</td></tr>
-      <tr><td><code>merchantCode</code></td><td>string</td><td>商户编码。</td></tr>
-    </tbody></table>
-    <p><code>spendingConstraint</code> 常见嵌套：<code>spendingRule.utilizationLimit</code>（周期额度）、<code>spendingRule.transactionSizeLimit</code>（单笔限额）、<code>merchantCategoryCodeRule</code>（MCC）等。</p>
-
-    <h3 id="api-utilization">7.17 读取卡周期额度使用</h3>
-    <div class="path"><span class="method m-get">GET</span> /open/v1/cards/{id}/spending-utilization</div>
-    <h4>查询参数</h4><p><code>memberUserId</code>：可选。</p>
-    <h4>请求示例</h4>
-    <pre><code>GET {MERCHANT_API_BASE}/open/v1/cards/c_2m379xtlg5p73/spending-utilization
-Headers: 签名头（§2）
-（无请求体）</code></pre>
-    <h4>响应 <code>data</code></h4>
-    <pre><code>{
-  "cardAccountId": 25,
-  "supported": true,
-  "spentCents": 1200,
-  "limitCents": 50000,
-  "currency": "USD",
-  "preset": "monthly",
-  "periodKey": "2026-06",
-  "utilizationPercent": 2,
-  "source": "RECONCILE",
-  "nonRealtime": true,
-  "merchantCode": "M..."
-}</code></pre>
-    <h4>响应字段</h4>
-    <table>
-      <thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>cardAccountId</code></td><td>number</td><td>卡账户数字 ID。</td></tr>
-      <tr><td><code>supported</code></td><td>boolean</td><td>是否支持周期额度；非 SLASH 等可能为 <code>false</code>（仅返回基础字段）。</td></tr>
-      <tr><td><code>spentCents</code></td><td>number</td><td>本周期已用额度（分）。</td></tr>
-      <tr><td><code>limitCents</code></td><td>number?</td><td>本周期限额（分）；无限制为 <code>null</code>。</td></tr>
-      <tr><td><code>scopeType</code></td><td>string?</td><td>额度作用域类型。</td></tr>
-      <tr><td><code>currency</code></td><td>string?</td><td>币种。</td></tr>
-      <tr><td><code>preset</code></td><td>string?</td><td>周期：<code>daily</code>/<code>weekly</code>/<code>monthly</code>/<code>yearly</code>/<code>collective</code>。</td></tr>
-      <tr><td><code>timezone</code></td><td>string?</td><td>时区，如 <code>UTC</code>。</td></tr>
-      <tr><td><code>periodKey</code></td><td>string?</td><td>当前周期键，如 <code>2026-06</code>。</td></tr>
-      <tr><td><code>nextResetAt</code></td><td>string?</td><td>下次重置时间（ISO）。</td></tr>
-      <tr><td><code>utilizationPercent</code></td><td>number?</td><td>使用率 0–100。</td></tr>
-      <tr><td><code>source</code></td><td>string</td><td>数据来源，如 <code>CONSTRAINT</code> / <code>RECONCILE</code>。</td></tr>
-      <tr><td><code>lastEventAt</code> / <code>lastReconciledAt</code></td><td>string?</td><td>最近事件/对账时间。</td></tr>
-      <tr><td><code>nonRealtime</code></td><td>boolean</td><td>通常为 <code>true</code>（非实时渠道直读）。</td></tr>
-      <tr><td><code>merchantCode</code></td><td>string</td><td>商户编码。</td></tr>
-    </tbody></table>
-
-    <h3 id="api-card-group-patch">7.18 开卡后挂入/移出卡组</h3>
-    <div class="path"><span class="method m-patch">PATCH</span> /open/v1/cards/{id}/card-group</div>
-    <h4>请求头</h4><p>须带 <code>Idempotency-Key</code>。</p>
-    <h4>查询参数</h4><p><code>memberUserId</code>：可选。</p>
-    <h4>请求示例（挂入）</h4>
-    <pre><code>PATCH {MERCHANT_API_BASE}/open/v1/cards/c_2m379xtlg5p73/card-group?memberUserId=2002
-Headers:
-  Idempotency-Key: 550e8400-e29b-41d4-a716-446655440020
-  Content-Type: application/json
-  签名头（§2）
-
-{ "platformCardGroupId": 9 }</code></pre>
-    <h4>请求示例（移出）</h4>
-    <pre><code>PATCH {MERCHANT_API_BASE}/open/v1/cards/c_2m379xtlg5p73/card-group
-Headers: Idempotency-Key + 签名头
+{&quot;cardProductId&quot;:123,&quot;initialAmountMinor&quot;:1000,&quot;displayName&quot;:&quot;采购卡&quot;,&quot;quoteId&quot;:&quot;11111111-2222-4333-8444-555555555555&quot;}
+</code></pre>
+<p>请求不支持 <code>memberUserId</code>、<code>channelCode</code>、卡组资金池、消费约束或账单地址。响应 data 为<a href="#operation-model">卡操作模型</a>，初始可能为：</p>
+<pre tabindex="0"><code class="language-json">{&quot;operationId&quot;:123,&quot;issuanceTaskId&quot;:456,&quot;cardId&quot;:null,&quot;status&quot;:&quot;PENDING&quot;,&quot;stage&quot;:&quot;READY&quot;,&quot;operationType&quot;:&quot;CREATE&quot;,&quot;amountMinor&quot;:1000,&quot;feeMinor&quot;:20,&quot;currency&quot;:&quot;USD&quot;,&quot;errorCode&quot;:null,&quot;terminal&quot;:false,&quot;recoveryRequired&quot;:false,&quot;createdAt&quot;:&quot;2026-11-17T08:00:00Z&quot;,&quot;updatedAt&quot;:&quot;2026-11-17T08:00:00Z&quot;}
+</code></pre>
+<p>保存 <code>operationId</code> 后查询原操作。受理时 <code>cardId</code> 为空不表示失败；不因暂未拿到卡 ID 而重复开卡。</p>
+<h3 id="get-operation">8.3 查询卡操作</h3>
+<p><code>GET /open/v1/card-operations/{operationId}</code>，需签名。路径参数 <code>operationId</code> 为正整数卡操作 ID，不是兼容任务 ID 或钱包操作 ID。</p>
+<pre tabindex="0"><code class="language-http">GET {BASE}/open/v1/card-operations/123
+</code></pre>
+<p>响应 data 为卡操作模型。例如：</p>
+<pre tabindex="0"><code class="language-json">{&quot;operationId&quot;:123,&quot;issuanceTaskId&quot;:456,&quot;cardId&quot;:789,&quot;status&quot;:&quot;SUCCEEDED&quot;,&quot;stage&quot;:&quot;SUCCEEDED&quot;,&quot;operationType&quot;:&quot;CREATE&quot;,&quot;amountMinor&quot;:1000,&quot;feeMinor&quot;:20,&quot;currency&quot;:&quot;USD&quot;,&quot;errorCode&quot;:&quot;CARD_CREATED_AND_PAID&quot;,&quot;terminal&quot;:true,&quot;recoveryRequired&quot;:false,&quot;createdAt&quot;:&quot;2026-11-17T08:00:00Z&quot;,&quot;updatedAt&quot;:&quot;2026-11-17T08:03:00Z&quot;}
+</code></pre>
+<h3 id="operation-model">8.4 卡操作模型与状态</h3>
+<p>开卡、充值、冻结、解冻、销卡及其查询共用该模型。</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>字段</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>operationId</code></td>
+<td>integer(int64)</td>
+<td>原卡操作 ID</td>
+</tr>
+<tr>
+<td><code>issuanceTaskId</code></td>
+<td>integer(int64) / null</td>
+<td>关联发卡任务 ID，可能尚未取得或不适用</td>
+</tr>
+<tr>
+<td><code>cardId</code></td>
+<td>integer(int64) / null</td>
+<td>关联卡账户 ID；开卡成功后使用该值</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>string</td>
+<td><code>PENDING</code>、<code>PROCESSING</code>、<code>SUCCEEDED</code>、<code>FAILED</code></td>
+</tr>
+<tr>
+<td><code>stage</code></td>
+<td>string</td>
+<td>当前处理阶段，见下表；不替代最终状态</td>
+</tr>
+<tr>
+<td><code>operationType</code></td>
+<td>string</td>
+<td><code>CREATE</code>、<code>RECHARGE</code>、<code>FREEZE</code>、<code>UNFREEZE</code>、<code>CLOSE</code></td>
+</tr>
+<tr>
+<td><code>amountMinor</code></td>
+<td>integer(int64)</td>
+<td>本次本金，生命周期动作可为 0</td>
+</tr>
+<tr>
+<td><code>feeMinor</code></td>
+<td>integer(int64)</td>
+<td>本次服务费</td>
+</tr>
+<tr>
+<td><code>currency</code></td>
+<td>string</td>
+<td>币种</td>
+</tr>
+<tr>
+<td><code>errorCode</code></td>
+<td>string / null</td>
+<td>业务结果或核对标识；成功也可能有值，不以非空判断失败</td>
+</tr>
+<tr>
+<td><code>terminal</code></td>
+<td>boolean</td>
+<td>是否已到 SUCCEEDED / FAILED 终态</td>
+</tr>
+<tr>
+<td><code>recoveryRequired</code></td>
+<td>boolean</td>
+<td>是否需要进一步核对；为 true 时保留原单并联系支持</td>
+</tr>
+<tr>
+<td><code>createdAt</code>、<code>updatedAt</code></td>
+<td>string(date-time)</td>
+<td>创建、最近更新时间</td>
+</tr>
+</tbody>
+</table></div>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th><code>stage</code> 常见值</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>READY</code>、<code>SUBMITTING</code></td>
+<td>待处理或正在提交</td>
+</tr>
+<tr>
+<td><code>ACCEPTED</code>、<code>PENDING</code></td>
+<td>已受理或仍在处理</td>
+</tr>
+<tr>
+<td><code>UNKNOWN</code>、<code>MANUAL_REVIEW</code></td>
+<td>结果待确认或需要核对</td>
+</tr>
+<tr>
+<td><code>SUCCEEDED</code>、<code>FAILED</code></td>
+<td>对应完成或失败阶段</td>
+</tr>
+</tbody>
+</table></div>
+<p>仅 <code>status=SUCCEEDED</code> 表示本次操作完成。失败后的资金返还以实际账本和钱包结果核对；未知结果不按超时自动退款。该查询模型不返回 <code>fundingState</code>，资金状态字段仅见<a href="#operation-webhook">操作通知</a>。</p>
+<h3 id="recharge-quote">8.5 充值报价</h3>
+<p><code>GET /open/v1/cards/{cardId}/recharge-quote</code>，需签名。</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>参数</th>
+<th>位置</th>
+<th>类型</th>
+<th>必填</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cardId</code></td>
+<td>path</td>
+<td>string</td>
+<td>是</td>
+<td>当前商户可见的卡账户 ID</td>
+</tr>
+<tr>
+<td><code>amountMinor</code></td>
+<td>query</td>
+<td>integer(int64)</td>
+<td>是</td>
+<td>正整数充值本金，USD 分</td>
+</tr>
+</tbody>
+</table></div>
+<pre tabindex="0"><code class="language-http">GET {BASE}/open/v1/cards/789/recharge-quote?amountMinor=1000
+</code></pre>
+<p>响应 data 与<a href="#create-quote">报价模型</a>相同，含 <code>quoteId/expiresAt/amountMinor/feeMinor/totalMinor/currency/minInitialAmountMinor</code>。保存本次充值报价；其中 <code>minInitialAmountMinor</code> 是兼容字段名，最低充值本金应结合产品的 <code>minimumRechargeAmountMinor</code> 及实际校验结果判断。</p>
+<h3 id="recharge-card">8.6 提交充值</h3>
+<p><code>POST /open/v1/cards/{cardId}/recharge</code>，需签名及独立稳定 <code>Idempotency-Key</code>。路径 <code>cardId</code> 同上。</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>JSON 字段</th>
+<th>类型</th>
+<th>必填</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>amountMinor</code></td>
+<td>integer(int64)</td>
+<td>是</td>
+<td>正整数本金，USD 分</td>
+</tr>
+<tr>
+<td><code>quoteId</code></td>
+<td>string</td>
+<td>是</td>
+<td>本次有效充值报价，最长 36 字符</td>
+</tr>
+</tbody>
+</table></div>
+<pre tabindex="0"><code class="language-http">POST {BASE}/open/v1/cards/789/recharge
+Idempotency-Key: recharge-order-example-001
 Content-Type: application/json
 
-{ "platformCardGroupId": null }</code></pre>
-    <h4>请求体</h4>
-    <pre><code>{ "platformCardGroupId": 9 }</code></pre>
-    <table>
-      <thead><tr><th>字段</th><th>必填</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>platformCardGroupId</code></td><td>是（键须存在）</td><td>目标卡组 ID；<code>null</code> / <code>≤0</code> / 空 = 移出卡组（主钱包扣款）。</td></tr>
-    </tbody></table>
-    <p>移出卡组（改回主钱包扣款）：<code>{ "platformCardGroupId": null }</code></p>
-    <p>仅可绑本人 ACTIVE 自建卡组；已开卡后不可改绑运营「平台卡组」。</p>
-    <h4>响应 <code>data</code></h4>
-    <p>与 <code>GET /cards/{id}</code> 相同（含更新后的 <code>cardGroupLabel</code> 等）；字段见 §7.13。</p>
+{&quot;amountMinor&quot;:1000,&quot;quoteId&quot;:&quot;11111111-2222-4333-8444-555555555555&quot;}
+</code></pre>
+<p>响应 data 为<a href="#operation-model">卡操作模型</a>。按返回 <code>operationId</code> 确认 SUCCEEDED 后，再刷新主钱包、卡余额和相关账本；不能仅根据 POST 受理响应增加卡余额。恢复规则与开卡相同。</p>
+<h3 id="card-actions">8.7 冻结、解冻、销卡</h3>
+<p><code>POST /open/v1/cards/{cardId}/operations</code>，需签名及每个独立动作自己的 <code>Idempotency-Key</code>。</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>JSON 字段</th>
+<th>类型</th>
+<th>必填</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>operationType</code></td>
+<td>string</td>
+<td>是</td>
+<td>严格大写 <code>FREEZE</code>、<code>UNFREEZE</code> 或 <code>CLOSE</code></td>
+</tr>
+</tbody>
+</table></div>
+<pre tabindex="0"><code class="language-http">POST {BASE}/open/v1/cards/789/operations
+Idempotency-Key: freeze-action-example-001
+Content-Type: application/json
 
-    <h3 id="api-card-actions">7.19 卡片生命周期动作</h3>
-    <div class="path"><span class="method m-post">POST</span> /open/v1/cards/{id}/actions</div>
-    <h4>请求头</h4><p>须带 <code>Idempotency-Key</code>。</p>
-    <h4>请求示例</h4>
-    <pre><code>POST {MERCHANT_API_BASE}/open/v1/cards/c_2m379xtlg5p73/actions
-Headers:
-  Idempotency-Key: 550e8400-e29b-41d4-a716-446655440021
-  Content-Type: application/json
-  签名头（§2）
+{&quot;operationType&quot;:&quot;FREEZE&quot;}
+</code></pre>
+<p>响应 data 为<a href="#operation-model">卡操作模型</a>。同一卡充值和状态变更互斥；前一操作未完成时不并发提交下一动作。不提供 <code>ACTIVATE</code> 操作。销卡成功后仍需查询卡的 <code>closeRefundStatus</code> 及钱包账本，不能直接把卡内余额记成已收到的回款。</p>
+<h2 id="cards">9. 卡片查询与余额</h2>
+<h3 id="list-cards">9.1 卡列表</h3>
+<p><code>GET /open/v1/cards</code>，需签名，按当前商户范围查询。</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>Query 参数</th>
+<th>类型</th>
+<th>必填</th>
+<th>默认 / 范围</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>page</code></td>
+<td>integer</td>
+<td>否</td>
+<td>0，从 0 开始</td>
+</tr>
+<tr>
+<td><code>size</code></td>
+<td>integer</td>
+<td>否</td>
+<td>20，有效范围 1–100</td>
+</tr>
+<tr>
+<td><code>cardGroupId</code></td>
+<td>integer(int64)</td>
+<td>否</td>
+<td>省略查全部；0 查未归属卡组；正数需为默认关联账户可见卡组</td>
+</tr>
+</tbody>
+</table></div>
+<pre tabindex="0"><code class="language-http">GET {BASE}/open/v1/cards?page=0&amp;size=100
+</code></pre>
+<p>响应 data：</p>
+<pre tabindex="0"><code class="language-json">{&quot;total&quot;:1,&quot;page&quot;:0,&quot;size&quot;:100,&quot;merchantCode&quot;:&quot;M_EXAMPLE&quot;,&quot;items&quot;:[{&quot;id&quot;:&quot;789&quot;,&quot;displayName&quot;:&quot;采购卡&quot;,&quot;panMasked&quot;:&quot;**** **** **** 1234&quot;,&quot;panLast4&quot;:&quot;1234&quot;,&quot;status&quot;:&quot;ACTIVE&quot;,&quot;cardProductId&quot;:123,&quot;cardProductName&quot;:&quot;USD单卡余额产品&quot;,&quot;platformCardGroupId&quot;:null,&quot;cardGroupName&quot;:null,&quot;cardGroupCode&quot;:null,&quot;cardGroupMemberOwned&quot;:false,&quot;cardGroupLabel&quot;:&quot;单卡余额&quot;,&quot;channelDisplayName&quot;:&quot;&lt;服务展示标识&gt;&quot;,&quot;issuingEnvironment&quot;:null,&quot;fundingMode&quot;:&quot;SINGLE_CARD_BALANCE&quot;,&quot;supportsSpendingConstraints&quot;:false,&quot;balanceMinor&quot;:1000,&quot;balanceAsOf&quot;:&quot;2026-11-17T08:03:00Z&quot;,&quot;balanceStale&quot;:false,&quot;closeRefundStatus&quot;:null,&quot;pendingAction&quot;:null,&quot;merchantCode&quot;:&quot;M_EXAMPLE&quot;}]}
+</code></pre>
+<p><code>total</code> 为当前匹配总数，<code>page</code> 为页号，<code>size</code> 为有效请求页长，<code>items</code> 为卡片数组。导入全部历史卡时省略 <code>cardGroupId</code>。本接口不支持账户、状态或渠道查询参数。</p>
+<h3 id="get-card">9.2 脱敏卡详情</h3>
+<p><code>GET /open/v1/cards/{cardId}</code>，需签名。<code>cardId</code> 为卡列表返回的字符串 <code>id</code>，或成功卡操作的 <code>cardId</code>。</p>
+<pre tabindex="0"><code class="language-http">GET {BASE}/open/v1/cards/789
+</code></pre>
+<p>响应 data 是单个卡对象，字段与列表项相同：</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>字段</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>string</td>
+<td>卡账户 ID</td>
+</tr>
+<tr>
+<td><code>displayName</code></td>
+<td>string / null</td>
+<td>卡片展示名</td>
+</tr>
+<tr>
+<td><code>panMasked</code>、<code>panLast4</code></td>
+<td>string / null</td>
+<td>掩码卡号及后四位</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>string</td>
+<td>卡状态，如 ACTIVE / FROZEN / CLOSED；与卡操作状态分开处理</td>
+</tr>
+<tr>
+<td><code>cardProductId</code></td>
+<td>integer(int64)</td>
+<td>产品 ID</td>
+</tr>
+<tr>
+<td><code>cardProductName</code></td>
+<td>string / null</td>
+<td>产品名称</td>
+</tr>
+<tr>
+<td><code>platformCardGroupId</code></td>
+<td>integer(int64) / null</td>
+<td>关联卡组 ID，无卡组时可空</td>
+</tr>
+<tr>
+<td><code>cardGroupName</code>、<code>cardGroupCode</code></td>
+<td>string / null</td>
+<td>卡组名称和编码</td>
+</tr>
+<tr>
+<td><code>cardGroupMemberOwned</code></td>
+<td>boolean</td>
+<td>是否为所属账户自建卡组</td>
+</tr>
+<tr>
+<td><code>cardGroupLabel</code></td>
+<td>string</td>
+<td>用于展示的卡组/资金模式标签</td>
+</tr>
+<tr>
+<td><code>channelCode</code></td>
+<td>string，可不出现</td>
+<td>不透明服务标识</td>
+</tr>
+<tr>
+<td><code>channelDisplayName</code></td>
+<td>string</td>
+<td>不透明服务展示标识</td>
+</tr>
+<tr>
+<td><code>issuingEnvironment</code></td>
+<td>string / null</td>
+<td>环境标识，按实际返回处理</td>
+</tr>
+<tr>
+<td><code>merchantCode</code></td>
+<td>string</td>
+<td>商户编码</td>
+</tr>
+<tr>
+<td><code>fundingMode</code></td>
+<td>string，适用产品返回</td>
+<td>单卡余额为 SINGLE_CARD_BALANCE</td>
+</tr>
+<tr>
+<td><code>supportsSpendingConstraints</code></td>
+<td>boolean，适用产品返回</td>
+<td>是否支持消费约束</td>
+</tr>
+<tr>
+<td><code>balanceMinor</code></td>
+<td>integer(int64) / null，适用产品返回</td>
+<td>最近确认卡余额，可能未知</td>
+</tr>
+<tr>
+<td><code>balanceAsOf</code></td>
+<td>string(date-time) / null，适用产品返回</td>
+<td>最近确认时间</td>
+</tr>
+<tr>
+<td><code>balanceStale</code></td>
+<td>boolean，适用产品返回</td>
+<td>余额是否已过期、需刷新</td>
+</tr>
+<tr>
+<td><code>closeRefundStatus</code></td>
+<td>string / null，适用产品返回</td>
+<td>AWAITING_CONFIRMATION 待核对回款；RETURNED 已登记回款</td>
+</tr>
+<tr>
+<td><code>pendingAction</code></td>
+<td>string / null，适用产品返回</td>
+<td>正在处理的动作，例如 RECHARGE / FREEZE / UNFREEZE / CLOSE</td>
+</tr>
+</tbody>
+</table></div>
+<p>卡列表和详情不承诺返回 <code>currency</code>、<code>memberUserId</code>；单卡余额的币种从余额接口取得。列表中的余额是快照，需要当前余额时调用下述余额接口。</p>
+<h3 id="sensitive-card">9.3 卡敏感资料</h3>
+<p><code>GET /open/v1/cards/{cardId}/sensitive</code>，需签名，并受卡归属、产品支持范围和可用开卡资料限制。</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>参数</th>
+<th>位置</th>
+<th>类型</th>
+<th>必填</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cardId</code></td>
+<td>path</td>
+<td>string</td>
+<td>是</td>
+<td>卡账户 ID</td>
+</tr>
+<tr>
+<td><code>memberUserId</code></td>
+<td>query</td>
+<td>integer(int64)</td>
+<td>否</td>
+<td>如传入，须与卡片所属关联账户一致</td>
+</tr>
+</tbody>
+</table></div>
+<pre tabindex="0"><code class="language-http">GET {BASE}/open/v1/cards/789/sensitive
+</code></pre>
+<p>响应 data 字段如下。敏感值使用占位文本，不能直接用于支付。</p>
+<pre tabindex="0"><code class="language-json">{&quot;cardId&quot;:&quot;789&quot;,&quot;channelCode&quot;:&quot;&lt;服务标识&gt;&quot;,&quot;pan&quot;:&quot;&lt;完整卡号&gt;&quot;,&quot;cvv&quot;:&quot;&lt;安全码&gt;&quot;,&quot;expMonth&quot;:12,&quot;expYear&quot;:2030,&quot;merchantCode&quot;:&quot;M_EXAMPLE&quot;}
+</code></pre>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>字段</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cardId</code></td>
+<td>string</td>
+<td>卡账户 ID</td>
+</tr>
+<tr>
+<td><code>channelCode</code></td>
+<td>string</td>
+<td>不透明服务标识</td>
+</tr>
+<tr>
+<td><code>pan</code>、<code>cvv</code></td>
+<td>string</td>
+<td>完整卡号与安全码</td>
+</tr>
+<tr>
+<td><code>expMonth</code>、<code>expYear</code></td>
+<td>integer</td>
+<td>到期月、四位年份</td>
+</tr>
+<tr>
+<td><code>merchantCode</code></td>
+<td>string</td>
+<td>商户编码</td>
+</tr>
+</tbody>
+</table></div>
+<p>响应包含 <code>Cache-Control: no-store</code>、<code>Pragma: no-cache</code>。仅在业务必需时获取，限制展示权限，不记入日志或普通数据导入，也不持久缓存。历史卡或不支持该能力的卡可能拒绝读取，不以列表中存在该卡推定敏感资料可用。</p>
+<h3 id="card-balance">9.4 查询单卡余额</h3>
+<p><code>GET /open/v1/cards/{cardId}/balance</code>，需签名，适用于已开通的单卡余额产品。</p>
+<pre tabindex="0"><code class="language-http">GET {BASE}/open/v1/cards/789/balance
+</code></pre>
+<p>响应 data：</p>
+<pre tabindex="0"><code class="language-json">{&quot;cardId&quot;:789,&quot;balanceMinor&quot;:1000,&quot;currency&quot;:&quot;USD&quot;,&quot;asOf&quot;:&quot;2026-11-17T08:03:00Z&quot;,&quot;stale&quot;:false,&quot;errorCode&quot;:null}
+</code></pre>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>字段</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cardId</code></td>
+<td>integer(int64)</td>
+<td>卡账户 ID</td>
+</tr>
+<tr>
+<td><code>balanceMinor</code></td>
+<td>integer(int64) / null</td>
+<td>卡内余额，最小货币单位；null 表示未知，不能转为 0</td>
+</tr>
+<tr>
+<td><code>currency</code></td>
+<td>string</td>
+<td>币种</td>
+</tr>
+<tr>
+<td><code>asOf</code></td>
+<td>string(date-time) / null</td>
+<td>最近可靠余额确认时间</td>
+</tr>
+<tr>
+<td><code>stale</code></td>
+<td>boolean</td>
+<td>true 表示刷新失败或快照已过期，可能保留旧余额</td>
+</tr>
+<tr>
+<td><code>errorCode</code></td>
+<td>string / null</td>
+<td>余额刷新或核对标识</td>
+</tr>
+</tbody>
+</table></div>
+<p>展示余额时同时保留时效信息，不把旧余额当成刚确认的可用资金。</p>
+<h2 id="wallets">10. 钱包与账本</h2>
+<h3 id="list-wallets">10.1 钱包列表</h3>
+<p><code>GET /open/v1/wallets</code>，需签名。</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>Query 参数</th>
+<th>类型</th>
+<th>必填</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>memberUserId</code></td>
+<td>integer(int64)</td>
+<td>否</td>
+<td>指定则查该关联账户；省略查商户可见钱包</td>
+</tr>
+</tbody>
+</table></div>
+<pre tabindex="0"><code class="language-http">GET {BASE}/open/v1/wallets?memberUserId=456
+</code></pre>
+<p>响应 data 为钱包数组：</p>
+<pre tabindex="0"><code class="language-json">[{&quot;walletId&quot;:&quot;54&quot;,&quot;currency&quot;:&quot;USD&quot;,&quot;availableAmountMinor&quot;:100000,&quot;availableAmount&quot;:&quot;1000.00&quot;,&quot;cardGroupId&quot;:0,&quot;walletRole&quot;:&quot;MAIN&quot;,&quot;cardGroupName&quot;:null,&quot;merchantCode&quot;:&quot;M_EXAMPLE&quot;}]
+</code></pre>
+<h3 id="get-wallet">10.2 钱包详情</h3>
+<p><code>GET /open/v1/wallets/{walletId}</code>，需签名。路径 <code>walletId</code> 为钱包列表返回的字符串 ID。</p>
+<pre tabindex="0"><code class="language-http">GET {BASE}/open/v1/wallets/54
+</code></pre>
+<p>响应 data 为单个钱包对象：</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>字段</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>walletId</code></td>
+<td>string</td>
+<td>钱包 ID</td>
+</tr>
+<tr>
+<td><code>currency</code></td>
+<td>string</td>
+<td>币种</td>
+</tr>
+<tr>
+<td><code>availableAmountMinor</code></td>
+<td>integer(int64)</td>
+<td>可用余额，最小货币单位</td>
+</tr>
+<tr>
+<td><code>availableAmount</code></td>
+<td>string</td>
+<td>可用余额展示值，两位小数</td>
+</tr>
+<tr>
+<td><code>cardGroupId</code></td>
+<td>integer(int64)</td>
+<td>主钱包为 0，卡组钱包为对应卡组 ID</td>
+</tr>
+<tr>
+<td><code>walletRole</code></td>
+<td>string</td>
+<td>MAIN / CARD_GROUP</td>
+</tr>
+<tr>
+<td><code>cardGroupName</code></td>
+<td>string / null</td>
+<td>卡组名称，主钱包可空</td>
+</tr>
+<tr>
+<td><code>merchantCode</code></td>
+<td>string</td>
+<td>商户编码</td>
+</tr>
+</tbody>
+</table></div>
+<p>选定实际开卡关联账户的 USD MAIN 钱包，再比较可用余额与报价合计；多个账户存在时不任意取第一个 MAIN。接口不提供冻结余额或总资产字段，卡组钱包也不等于单卡余额。</p>
+<h3 id="wallet-ledger">10.3 钱包账本分页</h3>
+<p><code>GET /open/v1/wallet-ledger</code>，需签名。合并所选关联账户的 <strong>USD 主钱包和所有卡组钱包</strong> 账本。</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>Query 参数</th>
+<th>类型</th>
+<th>必填</th>
+<th>默认 / 范围</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>memberUserId</code></td>
+<td>integer(int64)</td>
+<td>否</td>
+<td>默认关联账户</td>
+</tr>
+<tr>
+<td><code>page</code></td>
+<td>integer</td>
+<td>否</td>
+<td>0，从 0 开始</td>
+</tr>
+<tr>
+<td><code>size</code></td>
+<td>integer</td>
+<td>否</td>
+<td>20，上限 200；建议固定 100，不超过上限</td>
+</tr>
+<tr>
+<td><code>sort</code></td>
+<td>string</td>
+<td>否</td>
+<td>desc；支持 asc / desc</td>
+</tr>
+</tbody>
+</table></div>
+<pre tabindex="0"><code class="language-http">GET {BASE}/open/v1/wallet-ledger?memberUserId=456&amp;page=0&amp;size=100&amp;sort=asc
+</code></pre>
+<p>响应 data：</p>
+<pre tabindex="0"><code class="language-json">{&quot;total&quot;:1,&quot;page&quot;:0,&quot;size&quot;:1,&quot;sort&quot;:&quot;asc&quot;,&quot;merchantCode&quot;:&quot;M_EXAMPLE&quot;,&quot;items&quot;:[{&quot;id&quot;:&quot;901&quot;,&quot;occurredAt&quot;:&quot;2026-11-17T08:00:00Z&quot;,&quot;amountMinor&quot;:-1020,&quot;amount&quot;:&quot;10.20&quot;,&quot;direction&quot;:&quot;DEBIT&quot;,&quot;balanceAfterMinor&quot;:98980,&quot;balanceAfter&quot;:&quot;989.80&quot;,&quot;entryType&quot;:&quot;ISSUING_RESERVE&quot;,&quot;referenceType&quot;:&quot;ISSUING_OPERATION&quot;,&quot;referenceId&quot;:&quot;123&quot;,&quot;businessRef&quot;:&quot;issuing:123&quot;,&quot;walletAccountId&quot;:&quot;54&quot;,&quot;cardGroupId&quot;:&quot;0&quot;}]}
+</code></pre>
+<p><code>data.size</code> 是<strong>本页实际条数</strong>，不是请求页长；下一页继续使用原来的 <code>size=100</code>，只递增 <code>page</code>。<code>total</code> 为匹配总数，<code>items</code> 为账本记录。</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>记录字段</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>string</td>
+<td>账本 ID，导入去重键</td>
+</tr>
+<tr>
+<td><code>occurredAt</code></td>
+<td>string(date-time)</td>
+<td>业务发生时间</td>
+</tr>
+<tr>
+<td><code>amountMinor</code></td>
+<td>integer(int64)</td>
+<td>带符号变动金额</td>
+</tr>
+<tr>
+<td><code>amount</code></td>
+<td>string</td>
+<td>绝对值展示金额</td>
+</tr>
+<tr>
+<td><code>direction</code></td>
+<td>string</td>
+<td>CREDIT / DEBIT；金额 0 归 CREDIT</td>
+</tr>
+<tr>
+<td><code>balanceAfterMinor</code>、<code>balanceAfter</code></td>
+<td>integer(int64)、string</td>
+<td>本条所属钱包变动后的余额</td>
+</tr>
+<tr>
+<td><code>entryType</code></td>
+<td>string / null</td>
+<td>记账类型</td>
+</tr>
+<tr>
+<td><code>referenceType</code>、<code>referenceId</code></td>
+<td>string / null</td>
+<td>业务关联类型和 ID</td>
+</tr>
+<tr>
+<td><code>businessRef</code></td>
+<td>string / null</td>
+<td>业务引用</td>
+</tr>
+<tr>
+<td><code>walletAccountId</code></td>
+<td>string</td>
+<td>所属钱包 ID</td>
+</tr>
+<tr>
+<td><code>cardGroupId</code></td>
+<td>string</td>
+<td>本条卡组 ID；注意本接口为字符串</td>
+</tr>
+</tbody>
+</table></div>
+<p>本接口没有 <code>walletId/cardId/from/to/cursor</code> 过滤参数。只展示主钱包时，根据 <code>walletAccountId</code> 在结果中区分；<code>balanceAfterMinor</code> 属于该条钱包，不能把多个钱包当作一条余额序列。</p>
+<h3 id="ledger-reconciliation">10.4 开卡与充值账本核对</h3>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th><code>entryType</code></th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ISSUING_RESERVE</code></td>
+<td>一次预占本金和服务费合计，负向变动</td>
+</tr>
+<tr>
+<td><code>ISSUING_FEE_COMMITTED</code></td>
+<td>金额为 0 的费用确认记录，不是再次扣费，也不表示零手续费</td>
+</tr>
+<tr>
+<td><code>ISSUING_RELEASE</code></td>
+<td>失败后实际释放预占的正向记录</td>
+</tr>
+<tr>
+<td><code>ISSUING_CLOSE_RETURN</code></td>
+<td>已确认销卡回款的记录，不根据卡已关闭自行推算</td>
+</tr>
+</tbody>
+</table></div>
+<p>当 <code>referenceType=ISSUING_OPERATION</code> 时，<code>referenceId</code> 可关联原 <code>operationId</code>。例如本金 1000、服务费 20 的申请，预占 -1020；成功确认时不能在商户业务系统重复扣 20。卡消费与卡内退款通过交易和卡余额核对，不应期待每一笔都出现在主钱包账本。</p>
+<h2 id="transactions">11. 交易历史与数据同步</h2>
+<h3 id="list-transactions">11.1 交易分页查询</h3>
+<p><code>GET /open/v1/transactions</code>，需签名。读取当前商户及所选账户范围内已经可见的交易记录。</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>Query 参数</th>
+<th>类型</th>
+<th>必填</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>memberUserId</code></td>
+<td>integer(int64)</td>
+<td>否</td>
+<td>默认关联账户；指定时校验商户归属</td>
+</tr>
+<tr>
+<td><code>cardId</code></td>
+<td>integer(int64)</td>
+<td>否</td>
+<td>平台卡账户 ID，不能覆盖账户与商户范围</td>
+</tr>
+<tr>
+<td><code>txnType</code></td>
+<td>string</td>
+<td>否</td>
+<td>交易类型过滤</td>
+</tr>
+<tr>
+<td><code>from</code>、<code>to</code></td>
+<td>string(date-time)</td>
+<td>否</td>
+<td>按发生时间过滤，带时区偏移，两端均包含</td>
+</tr>
+<tr>
+<td><code>page</code></td>
+<td>integer</td>
+<td>否</td>
+<td>默认 0，从 0 开始</td>
+</tr>
+<tr>
+<td><code>size</code></td>
+<td>integer</td>
+<td>否</td>
+<td>默认 20，有效范围 1–200，建议 100</td>
+</tr>
+</tbody>
+</table></div>
+<pre tabindex="0"><code class="language-http">GET {BASE}/open/v1/transactions?memberUserId=456&amp;cardId=789&amp;from=2026-11-01T00:00:00Z&amp;to=2026-11-17T08:00:00Z&amp;page=0&amp;size=100
+</code></pre>
+<p>日期和其他参数按标准 URL 编码后发送并参与签名。结果按发生时间倒序、再按 ID 倒序排列。接口没有 <code>status/channelCode/updatedSince/cursor</code> 参数；需要渠道筛选时根据返回的不透明标识在本地处理。</p>
+<p>响应 data：</p>
+<pre tabindex="0"><code class="language-json">{&quot;total&quot;:1,&quot;page&quot;:0,&quot;pageSize&quot;:100,&quot;itemCount&quot;:1,&quot;merchantCode&quot;:&quot;M_EXAMPLE&quot;,&quot;items&quot;:[{&quot;id&quot;:&quot;902&quot;,&quot;memberUserId&quot;:&quot;456&quot;,&quot;cardAccountId&quot;:&quot;789&quot;,&quot;txnType&quot;:&quot;PURCHASE&quot;,&quot;status&quot;:&quot;POSTED&quot;,&quot;amountMinor&quot;:-500,&quot;amount&quot;:&quot;5.00&quot;,&quot;currency&quot;:&quot;USD&quot;,&quot;occurredAt&quot;:&quot;2026-11-16T09:00:00Z&quot;,&quot;merchantReference&quot;:null,&quot;channelReference&quot;:&quot;example-transaction-ref&quot;,&quot;narrative&quot;:null,&quot;merchantDescription&quot;:&quot;Example Store&quot;,&quot;channelStatus&quot;:null,&quot;channelDetailedStatus&quot;:null,&quot;feeTotalMinorSnapshot&quot;:null,&quot;feeRuleSourceSnapshot&quot;:null,&quot;feeRuleIdSnapshot&quot;:null,&quot;feeRuleTableSnapshot&quot;:null,&quot;feeSummarySnapshot&quot;:null,&quot;feeSnapshotAvailable&quot;:false,&quot;feeEstimateAvailable&quot;:false,&quot;merchantCode&quot;:&quot;M_EXAMPLE&quot;}]}
+</code></pre>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>分页字段</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>total</code></td>
+<td>integer(int64)</td>
+<td>匹配总数</td>
+</tr>
+<tr>
+<td><code>page</code></td>
+<td>integer</td>
+<td>当前页号</td>
+</tr>
+<tr>
+<td><code>pageSize</code></td>
+<td>integer</td>
+<td>有效请求页长</td>
+</tr>
+<tr>
+<td><code>itemCount</code></td>
+<td>integer</td>
+<td>本页实际条数</td>
+</tr>
+<tr>
+<td><code>items</code></td>
+<td>array</td>
+<td>交易对象数组</td>
+</tr>
+<tr>
+<td><code>merchantCode</code></td>
+<td>string</td>
+<td>商户编码</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="transaction-model">11.2 交易记录字段</h3>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>字段</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>string</td>
+<td>平台交易记录 ID，用于去重及状态更新</td>
+</tr>
+<tr>
+<td><code>memberUserId</code></td>
+<td>string</td>
+<td>关联账户 ID</td>
+</tr>
+<tr>
+<td><code>cardAccountId</code></td>
+<td>string / null</td>
+<td>卡账户 ID</td>
+</tr>
+<tr>
+<td><code>txnType</code>、<code>status</code></td>
+<td>string</td>
+<td>交易类型及状态，按实际值处理，不把所有记录当成最终消费</td>
+</tr>
+<tr>
+<td><code>amountMinor</code></td>
+<td>integer(int64)</td>
+<td>带符号金额</td>
+</tr>
+<tr>
+<td><code>amount</code></td>
+<td>string</td>
+<td>绝对值展示金额</td>
+</tr>
+<tr>
+<td><code>currency</code></td>
+<td>string</td>
+<td>币种</td>
+</tr>
+<tr>
+<td><code>occurredAt</code></td>
+<td>string(date-time)</td>
+<td>发生时间</td>
+</tr>
+<tr>
+<td><code>merchantReference</code>、<code>channelReference</code></td>
+<td>string / null</td>
+<td>商户引用与交易服务引用</td>
+</tr>
+<tr>
+<td><code>merchantDescription</code>、<code>narrative</code></td>
+<td>string / null</td>
+<td>消费商户描述与摘要</td>
+</tr>
+<tr>
+<td><code>channelCode</code></td>
+<td>string / null</td>
+<td>不透明服务标识</td>
+</tr>
+<tr>
+<td><code>channelStatus</code>、<code>channelDetailedStatus</code></td>
+<td>string / null</td>
+<td>服务状态与细状态，按原值保存</td>
+</tr>
+<tr>
+<td><code>merchantCode</code></td>
+<td>string</td>
+<td>商户编码</td>
+</tr>
+<tr>
+<td><code>feeSnapshotAvailable</code>、<code>feeEstimateAvailable</code></td>
+<td>boolean</td>
+<td>是否提供手续费快照或当前估算</td>
+</tr>
+<tr>
+<td><code>feeTotalMinorSnapshot</code></td>
+<td>integer(int64) / null</td>
+<td>已记录的手续费最小单位金额</td>
+</tr>
+<tr>
+<td><code>feeRuleSourceSnapshot</code>、<code>feeRuleIdSnapshot</code>、<code>feeRuleTableSnapshot</code></td>
+<td>string / null</td>
+<td>不透明规则关联标识，不用于商户程序判断收费方式</td>
+</tr>
+<tr>
+<td><code>feeSummarySnapshot</code></td>
+<td>string / null</td>
+<td>快照说明</td>
+</tr>
+<tr>
+<td><code>feeSnapshotFormatted</code></td>
+<td>string，条件返回</td>
+<td>快照展示金额</td>
+</tr>
+</tbody>
+</table></div>
+<p>兼容交易可能按数据情况额外返回下列字段；不出现时不按 0 补齐：</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>条件字段</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>feeSnapshotMinor</code>、<code>feeEstimateMinor</code></td>
+<td>integer(int64)</td>
+<td>快照、估算最小单位金额</td>
+</tr>
+<tr>
+<td><code>feeSnapshot</code>、<code>feeEstimate</code></td>
+<td>string</td>
+<td>快照、估算展示金额</td>
+</tr>
+<tr>
+<td><code>feeSnapshotSummary</code>、<code>feeSnapshotNote</code></td>
+<td>string / null</td>
+<td>历史快照说明</td>
+</tr>
+<tr>
+<td><code>feeSnapshotRuleSource</code>、<code>feeRuleSource</code></td>
+<td>string / null</td>
+<td>不透明规则来源标识</td>
+</tr>
+<tr>
+<td><code>feeSummary</code>、<code>feeEstimateNote</code>、<code>feeEstimateVsSnapshotNote</code></td>
+<td>string / null</td>
+<td>当前估算与差异说明</td>
+</tr>
+</tbody>
+</table></div>
+<p>当前单卡余额产品的交易可能没有可用消费手续费快照或估算，可用标记为 false <strong>不表示零手续费</strong>。开卡与充值服务费按当次报价和原操作的 <code>feeMinor</code> 核对，不套用交易估算。</p>
+<p>交易类型和服务状态可扩展，消费、退款、冲正和授权应分别处理。REST 可以返回归属匹配且已可见的授权记录，但交易通知不提供实时授权事件。</p>
+<h3 id="history-import">11.3 首次历史导入</h3>
+<ol>
+<li>确认商户、关联账户和卡 ID 范围。卡列表分页导入时省略 <code>cardGroupId</code> 以覆盖全部卡。</li>
+<li>固定本轮交易截止时间 <code>T0</code>，按日或周切分 <code>from/to</code> 时间窗，固定 <code>size=100</code>，每窗从第 0 页向后读取。</li>
+<li>按平台交易 <code>id</code> 做 upsert；已存在 ID 的状态变化更新原行，不重复增加交易。</li>
+<li>两端包含边界，窗口交接处需要去重；扫描期间数据可能增加，完成后重复核对重叠窗口。</li>
+<li>钱包账本首次使用 <code>sort=asc</code>、固定 <code>size=100</code> 逐页导入，以账本 ID 去重，并按 <code>walletAccountId</code> 分账。</li>
+</ol>
+<p>这些查询提供的是当前商户及账户可见记录，不自动补齐全部历史。历史不在当前归属范围或尚不可见时可能查不到；空列表不证明没有交易。全量迁移前请确认服务开通范围、历史覆盖日期和账户映射。</p>
+<h3 id="incremental-sync">11.4 增量同步与余额对账</h3>
+<p>通过 Webhook 触发查询，并定期重扫最近交易窗口。<code>from/to</code> 按发生时间而不是更新时间筛选，较早交易的后续更新及迟到记录可能落在近期窗口之外，因此还需定期补扫较早窗口或全量核对。</p>
+<p>账本没有时间或 ID 游标查询，增量可用 <code>sort=desc</code> 读取最近页，按 ID 去重并保留重叠；不能把“遇到第一个已见 ID 就永久停止”作为严格完整性保证。卡、交易和账本均为分页查询，扫描期间不承诺强一致快照。</p>
+<p>对账按钱包分别核对可用余额与相关预占、释放、入账记录，再核对卡余额及卡交易。余额查询和历史扫描可能不是同一观察时点。不要通过简单相加所有授权、消费和退款来替代当前卡余额查询。</p>
+<h2 id="compatibility">12. 兼容查询、卡组与费用</h2>
+<p>本章用于已有资源。新单卡余额开卡和充值使用第 8 章流程，不先创建卡组或通过卡组划款为卡充值。</p>
+<h3 id="list-card-groups">12.1 卡组列表</h3>
+<p><code>GET /open/v1/card-groups</code>，需签名。可选 query <code>memberUserId</code>（integer(int64)），省略时使用默认关联账户。返回有效的账户自建卡组数组，不含余额。</p>
+<pre tabindex="0"><code class="language-http">GET {BASE}/open/v1/card-groups?memberUserId=456
+</code></pre>
+<pre tabindex="0"><code class="language-json">[{&quot;id&quot;:9,&quot;code&quot;:&quot;GROUP_EXAMPLE&quot;,&quot;name&quot;:&quot;采购组&quot;,&quot;memberOwned&quot;:true,&quot;status&quot;:&quot;ACTIVE&quot;,&quot;merchantCode&quot;:&quot;M_EXAMPLE&quot;}]
+</code></pre>
+<p>字段：<code>id</code> 为 integer(int64)；<code>code/name/status/merchantCode</code> 为 string；<code>memberOwned</code> 为 boolean。余额通过钱包列表的 CARD_GROUP 对象查询。</p>
+<h3 id="release-card-group">12.2 卡组资金划回主钱包</h3>
+<p><code>POST /open/v1/card-groups/{cardGroupId}/release</code>，需签名及稳定 <code>Idempotency-Key</code>。</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>参数</th>
+<th>位置</th>
+<th>类型</th>
+<th>必填</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cardGroupId</code></td>
+<td>path</td>
+<td>integer(int64)</td>
+<td>是</td>
+<td>所选关联账户有效自建卡组 ID</td>
+</tr>
+<tr>
+<td><code>memberUserId</code></td>
+<td>query</td>
+<td>integer(int64)</td>
+<td>否</td>
+<td>省略时默认关联账户</td>
+</tr>
+<tr>
+<td><code>currency</code></td>
+<td>JSON</td>
+<td>string</td>
+<td>是</td>
+<td>USD</td>
+</tr>
+<tr>
+<td><code>amount</code></td>
+<td>JSON</td>
+<td>string</td>
+<td>是</td>
+<td>正十进制金额；建议按 USD 两位小数发送，超出分精度时四舍五入，换算后须大于 0</td>
+</tr>
+</tbody>
+</table></div>
+<pre tabindex="0"><code class="language-http">POST {BASE}/open/v1/card-groups/9/release?memberUserId=456
+Idempotency-Key: release-order-example-001
+Content-Type: application/json
 
-{
-  "action": "FREEZE",
-  "memberUserId": 2002
-}</code></pre>
-    <h4>请求体</h4>
-    <pre><code>{
-  "action": "ACTIVATE | FREEZE | UNFREEZE | CLOSE",
-  "memberUserId": 2002
-}</code></pre>
-    <table>
-      <thead><tr><th>字段</th><th>必填</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>action</code></td><td>是</td><td><code>ACTIVATE</code> / <code>FREEZE</code> / <code>UNFREEZE</code> / <code>CLOSE</code>。</td></tr>
-      <tr><td><code>memberUserId</code></td><td>否</td><td>传入则按该会员范围执行；省略为商户范围。</td></tr>
-    </tbody></table>
-    <h4>响应 <code>data</code></h4>
-    <pre><code>{ "id": "卡ID", "merchantCode": "M...", "action": "FREEZE", "status": "FROZEN" }</code></pre>
-    <h4>响应字段</h4>
-    <table>
-      <thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>id</code></td><td>string</td><td>卡账户 ID。</td></tr>
-      <tr><td><code>merchantCode</code></td><td>string</td><td>商户编码。</td></tr>
-      <tr><td><code>action</code></td><td>string</td><td>实际执行的动作。</td></tr>
-      <tr><td><code>status</code></td><td>string</td><td>动作后卡状态。</td></tr>
-    </tbody></table>
+{&quot;currency&quot;:&quot;USD&quot;,&quot;amount&quot;:&quot;50.00&quot;}
+</code></pre>
+<p>响应 data 为钱包操作，不是卡操作：</p>
+<pre tabindex="0"><code class="language-json">{&quot;id&quot;:&quot;903&quot;,&quot;reference&quot;:&quot;wo_903&quot;,&quot;status&quot;:&quot;SUCCEEDED&quot;,&quot;type&quot;:&quot;CARD_GROUP_RELEASE&quot;,&quot;currency&quot;:&quot;USD&quot;,&quot;amountMinor&quot;:5000,&quot;amount&quot;:&quot;50.00&quot;,&quot;merchantCode&quot;:&quot;M_EXAMPLE&quot;}
+</code></pre>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>字段</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code>、<code>reference</code></td>
+<td>string</td>
+<td>钱包操作 ID 及业务引用</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>string</td>
+<td>钱包操作结果，按实际状态处理</td>
+</tr>
+<tr>
+<td><code>type</code></td>
+<td>string</td>
+<td>CARD_GROUP_RELEASE</td>
+</tr>
+<tr>
+<td><code>currency</code></td>
+<td>string</td>
+<td>USD</td>
+</tr>
+<tr>
+<td><code>amountMinor</code>、<code>amount</code></td>
+<td>integer(int64)、string</td>
+<td>申请金额及展示值</td>
+</tr>
+<tr>
+<td><code>failureReason</code></td>
+<td>string，条件返回</td>
+<td>失败原因</td>
+</tr>
+<tr>
+<td><code>reversesOperationId</code></td>
+<td>string，条件返回</td>
+<td>关联撤销操作，存在时返回</td>
+</tr>
+<tr>
+<td><code>feeDisplayMode</code></td>
+<td>string，条件返回</td>
+<td>费用展示方式标识</td>
+</tr>
+<tr>
+<td><code>feeRateBps</code></td>
+<td>integer，条件返回</td>
+<td>费率基点，100 基点为 1%</td>
+</tr>
+<tr>
+<td><code>feeFlatMinor</code>、<code>feeTotalMinor</code></td>
+<td>integer(int64)，条件返回</td>
+<td>固定费及费用合计</td>
+</tr>
+<tr>
+<td><code>feeSnapshotMissing</code></td>
+<td>boolean，条件返回</td>
+<td>是否缺少历史费用快照</td>
+</tr>
+<tr>
+<td><code>feeSummary</code>、<code>feeTotalDisplay</code></td>
+<td>string，条件返回</td>
+<td>费用说明及展示金额</td>
+</tr>
+<tr>
+<td><code>feeRuleSource</code></td>
+<td>string，条件返回</td>
+<td>不透明规则来源标识</td>
+</tr>
+<tr>
+<td><code>merchantCode</code></td>
+<td>string</td>
+<td>商户编码</td>
+</tr>
+</tbody>
+</table></div>
+<p>划出仍受卡组归属、余额、可用性和风险校验限制，不保证所有余额均可划出。该操作不是卡充值，也不是销卡回款。其 <code>id</code> 不可用卡操作查询接口查询；结果不明时按原 key 和原字节恢复，并核对两个钱包和账本。</p>
+<h3 id="historical-task">12.3 兼容发卡任务查询</h3>
+<p><code>GET /open/v1/card-issuance-tasks/{taskId}</code>，需签名。<code>taskId</code> 是此前取得的发卡任务 ID。</p>
+<pre tabindex="0"><code class="language-http">GET {BASE}/open/v1/card-issuance-tasks/456
+</code></pre>
+<pre tabindex="0"><code class="language-json">{&quot;id&quot;:&quot;456&quot;,&quot;status&quot;:&quot;SUCCEEDED&quot;,&quot;channelRequestId&quot;:null,&quot;merchantCode&quot;:&quot;M_EXAMPLE&quot;}
+</code></pre>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>字段</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>string</td>
+<td>任务 ID</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>string</td>
+<td>任务状态</td>
+</tr>
+<tr>
+<td><code>channelRequestId</code></td>
+<td>string / null</td>
+<td>不透明请求引用</td>
+</tr>
+<tr>
+<td><code>merchantCode</code></td>
+<td>string</td>
+<td>商户编码</td>
+</tr>
+</tbody>
+</table></div>
+<p>此模型不含 <code>cardId</code> 或错误详情。新流程应保存并查询 <code>operationId</code>，不能用本接口代替新卡操作查询。</p>
+<h3 id="effective-fees">12.4 查询生效手续费规则及试算</h3>
+<p><code>GET /open/v1/merchant-fee-rules/effective</code>，需签名。</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>Query 参数</th>
+<th>类型</th>
+<th>必填</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>feeType</code></td>
+<td>string</td>
+<td>是</td>
+<td>CARD_ISSUANCE / TRANSACTION / REFUND / MANUAL_TOP_UP / WITHDRAWAL</td>
+</tr>
+<tr>
+<td><code>baseAmountMinor</code></td>
+<td>integer(int64)</td>
+<td>否</td>
+<td>试算基数，最小货币单位；省略按 0 处理</td>
+</tr>
+</tbody>
+</table></div>
+<pre tabindex="0"><code class="language-http">GET {BASE}/open/v1/merchant-fee-rules/effective?feeType=TRANSACTION&amp;baseAmountMinor=1000
+</code></pre>
+<pre tabindex="0"><code class="language-json">{&quot;feeType&quot;:&quot;TRANSACTION&quot;,&quot;source&quot;:&quot;MERCHANT&quot;,&quot;ruleId&quot;:&quot;12&quot;,&quot;ruleTable&quot;:&quot;&lt;规则标识&gt;&quot;,&quot;calculationMode&quot;:&quot;FIXED&quot;,&quot;currency&quot;:&quot;USD&quot;,&quot;fixedFeeMinor&quot;:&quot;20&quot;,&quot;minFeeMinor&quot;:&quot;0&quot;,&quot;ratePercent&quot;:null,&quot;tierRef&quot;:null,&quot;appliesTo&quot;:null,&quot;baseAmountMinor&quot;:&quot;1000&quot;,&quot;foreignTransaction&quot;:true,&quot;quotedFeeMinor&quot;:&quot;20&quot;,&quot;summary&quot;:&quot;固定服务费&quot;,&quot;merchantCode&quot;:&quot;M_EXAMPLE&quot;}
+</code></pre>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>字段</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>feeType</code></td>
+<td>string</td>
+<td>本次费用类型</td>
+</tr>
+<tr>
+<td><code>source</code></td>
+<td>string</td>
+<td>规则来源标识，例如 MERCHANT / GLOBAL</td>
+</tr>
+<tr>
+<td><code>ruleId</code>、<code>ruleTable</code></td>
+<td>string</td>
+<td>不透明兼容规则标识，不解析其内容</td>
+</tr>
+<tr>
+<td><code>calculationMode</code></td>
+<td>string</td>
+<td>FIXED / PERCENT / FIXED_PLUS_PERCENT</td>
+</tr>
+<tr>
+<td><code>currency</code></td>
+<td>string</td>
+<td>规则币种</td>
+</tr>
+<tr>
+<td><code>fixedFeeMinor</code>、<code>minFeeMinor</code></td>
+<td>string</td>
+<td>最小货币单位整数的字符串</td>
+</tr>
+<tr>
+<td><code>ratePercent</code></td>
+<td>string / null</td>
+<td>百分比字符串</td>
+</tr>
+<tr>
+<td><code>tierRef</code>、<code>appliesTo</code></td>
+<td>string / null</td>
+<td>规则适用及档位标识</td>
+</tr>
+<tr>
+<td><code>baseAmountMinor</code>、<code>quotedFeeMinor</code></td>
+<td>string</td>
+<td>试算基数及费用，均为最小单位整数的字符串</td>
+</tr>
+<tr>
+<td><code>foreignTransaction</code></td>
+<td>boolean</td>
+<td>本次试算属性；不是本接口请求参数</td>
+</tr>
+<tr>
+<td><code>summary</code></td>
+<td>string</td>
+<td>规则摘要</td>
+</tr>
+<tr>
+<td><code>merchantCode</code></td>
+<td>string</td>
+<td>商户编码</td>
+</tr>
+</tbody>
+</table></div>
+<p>开卡和充值的实际收费确认以对应报价及原操作为准。本兼容试算不能等同于单卡消费的实际服务费；没有快照或试算结果也不能推断零手续费。</p>
+<h2 id="webhooks">13. Webhook 通知</h2>
+<h3 id="webhook-delivery">13.1 配置与接收规则</h3>
+<p>使用接入服务提供的商户通知配置流程，设置 HTTPS 接收地址、订阅事件及独立 Webhook Secret。事件只有在已开通适用能力时产生；订阅某事件不代表全部产品都会触发它。</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th><code>eventType</code></th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>merchant.webhook.issuing.operation.updated</code></td>
+<td>本接口发起的卡操作更新</td>
+</tr>
+<tr>
+<td><code>merchant.webhook.transaction.updated</code></td>
+<td>交易清算、入账等后续更新，不含实时授权</td>
+</tr>
+<tr>
+<td><code>merchant.webhook.wallet.deposit.posted</code></td>
+<td>已开通数币自动充值的到账通知</td>
+</tr>
+<tr>
+<td><code>merchant.webhook.wallet.card_binding.verification_code</code></td>
+<td>适用卡产品的绑卡验证码</td>
+</tr>
+</tbody>
+</table></div>
+<p>收到通知后先验签，再核对事件 ID、可靠保存或入队，成功后返回 HTTP 2xx。通知可能重试、重复、乱序；以 <code>eventId</code> 去重，不用收到时间覆盖较新业务状态。没有承诺固定的重试次数或时间表。开卡和充值应使用通知中的 <code>operationId</code> 查询最新结果。</p>
+<h3 id="webhook-signature">13.2 通知请求头与签名</h3>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>请求头</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Content-Type</code></td>
+<td>application/json;charset=utf-8</td>
+</tr>
+<tr>
+<td><code>X-Vcc-Timestamp</code></td>
+<td>Unix 毫秒字符串</td>
+</tr>
+<tr>
+<td><code>X-Vcc-Nonce</code></td>
+<td>32 位小写十六进制随机值</td>
+</tr>
+<tr>
+<td><code>X-Vcc-Event-Id</code></td>
+<td>与 JSON <code>eventId</code> 一致的事件 ID</td>
+</tr>
+<tr>
+<td><code>X-Vcc-Signature</code></td>
+<td>小写 hex HMAC-SHA256</td>
+</tr>
+</tbody>
+</table></div>
+<p>用独立 Webhook Secret 对下面内容验签，<strong>没有分隔符</strong>：</p>
+<pre tabindex="0"><code class="language-text">payload = UTF8(timestamp + nonce) || 原始body字节
+signature = hex_lower(HMAC_SHA256(UTF8(WebhookSecret), payload))
+</code></pre>
+<p>通知协议与请求四行签名不同。不得先解析 JSON、重排或重新序列化后再验签。商户应限制可接受时间偏差、恒时比较签名，并校验头部事件 ID 与 body 一致；在保证验签的前提下，持久去重处理可避免重复业务动作。</p>
+<pre tabindex="0"><code class="language-python">import hashlib
+import hmac
+import json
+import re
+import time
 
-    <h3 id="api-constraint-patch">7.20 卡消费控制部分更新</h3>
-    <div class="path"><span class="method m-patch">PATCH</span> /open/v1/cards/{id}/spending-constraint</div>
-    <h4>请求头</h4><p>须带 <code>Idempotency-Key</code>（每次新请求使用新 Key）。</p>
-    <h4>查询参数</h4><p><code>memberUserId</code>：可选。</p>
-    <h4>请求体</h4>
-    <p>部分更新，与 Slash <code>PATCH /card/{id}/spending-constraint</code> 同构。金额使用 <code>limitAmount.amountCents</code>（分）；周期 <code>preset</code> 为 <code>daily|weekly|monthly|yearly|collective</code>。不得突破卡产品 <code>spendingConstraintCeilingJson</code>。配置前建议调用 §7.24、§7.22、§7.23。</p>
-    <h4>请求示例（更新周期额度）</h4>
-    <pre><code>PATCH {MERCHANT_API_BASE}/open/v1/cards/c_2m379xtlg5p73/spending-constraint?memberUserId=2002
-Headers:
-  Idempotency-Key: 550e8400-e29b-41d4-a716-446655440030
-  Content-Type: application/json
-  签名头（§2）
-
-{
-  "spendingRule": {
-    "utilizationLimit": {
-      "preset": "collective",
-      "timezone": "UTC",
-      "limitAmount": {
-        "amountCents": 23500
-      }
-    }
-  }
-}</code></pre>
-    <h4>请求示例（更新单笔限额）</h4>
-    <pre><code>{
-  "spendingRule": {
-    "transactionSizeLimit": {
-      "minimum": { "amountCents": 100 },
-      "maximum": { "amountCents": 50000 }
-    }
-  }
-}</code></pre>
-    <h4>请求示例（MCC 限制）</h4>
-    <pre><code>{
-  "merchantCategoryCodeRule": {
-    "merchantCategoryCodes": ["5411", "5812"],
-    "restriction": "allowlist"
-  }
-}</code></pre>
-    <div class="note">常见错误：把 <code>utilizationLimit</code> 放在根级，或使用 <code>limitCents</code>/<code>currency</code> 字段——渠道会拒绝，平台返回 <code>50021</code>（调额渠道调用失败）。正确结构为 <code>spendingRule.utilizationLimit.limitAmount.amountCents</code>。</div>
-    <h4>请求字段（常用路径）</h4>
-    <table>
-      <thead><tr><th>路径</th><th>类型</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>spendingRule.utilizationLimit.preset</code></td><td>string</td><td><code>daily</code> / <code>weekly</code> / <code>monthly</code> / <code>yearly</code> / <code>collective</code>。</td></tr>
-      <tr><td><code>spendingRule.utilizationLimit.timezone</code></td><td>string</td><td>时区，建议 <code>UTC</code>。</td></tr>
-      <tr><td><code>spendingRule.utilizationLimit.limitAmount.amountCents</code></td><td>number</td><td>周期额度（分）。</td></tr>
-      <tr><td><code>spendingRule.transactionSizeLimit.minimum.amountCents</code></td><td>number</td><td>单笔最小（分）。</td></tr>
-      <tr><td><code>spendingRule.transactionSizeLimit.maximum.amountCents</code></td><td>number</td><td>单笔最大（分）。</td></tr>
-      <tr><td><code>merchantCategoryCodeRule.merchantCategoryCodes</code></td><td>string[]</td><td>MCC 代码列表。</td></tr>
-      <tr><td><code>merchantCategoryCodeRule.restriction</code></td><td>string</td><td><code>allowlist</code> / <code>blacklist</code>。</td></tr>
-    </tbody></table>
-    <h4>响应 <code>data</code></h4>
-    <p>渠道返回的消费约束 JSON（透传，结构与 Slash spending-constraint 视图一致；成功时通常含更新后的 <code>spendingRule</code> 等）。失败时平台返回业务错误码（如 <code>50021</code>），不以成功体表示失败。</p>
-
-    <h3 id="api-transactions">7.21 交易分页查询</h3>
-    <div class="path"><span class="method m-get">GET</span> /open/v1/transactions</div>
-    <h4>查询参数</h4>
-    <table>
-      <thead><tr><th>参数</th><th>必填</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>memberUserId</code></td><td>否</td><td>省略时使用商户主会员。</td></tr>
-      <tr><td><code>cardId</code></td><td>否</td><td>按卡账户 ID 筛选。</td></tr>
-      <tr><td><code>txnType</code></td><td>否</td><td>交易类型筛选。</td></tr>
-      <tr><td><code>from</code> / <code>to</code></td><td>否</td><td>发生时间范围（ISO-8601，带偏移）。</td></tr>
-      <tr><td><code>page</code> / <code>size</code></td><td>否</td><td>默认 <code>page=0</code>、<code>size=20</code>；<code>size</code> 最大 200。</td></tr>
-    </tbody></table>
-    <h4>请求示例</h4>
-    <pre><code>GET {MERCHANT_API_BASE}/open/v1/transactions?memberUserId=2002&amp;cardId=c_2m379xtlg5p73&amp;page=0&amp;size=20
-Headers: 签名头（§2）
-（无请求体）</code></pre>
-    <h4>响应 <code>data</code></h4>
-    <pre><code>{
-  "total": 100,
-  "page": 0,
-  "pageSize": 20,
-  "itemCount": 20,
-  "merchantCode": "M...",
-  "items": [ { "id": "...", "amountMinor": -1200, "merchantCode": "M..." } ]
-}</code></pre>
-    <h4>响应字段（分页外壳）</h4>
-    <table>
-      <thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>total</code></td><td>number</td><td>总条数。</td></tr>
-      <tr><td><code>page</code></td><td>number</td><td>当前页。</td></tr>
-      <tr><td><code>pageSize</code></td><td>number</td><td>有效页大小。</td></tr>
-      <tr><td><code>itemCount</code></td><td>number</td><td>本页条数。</td></tr>
-      <tr><td><code>merchantCode</code></td><td>string</td><td>商户编码。</td></tr>
-      <tr><td><code>items</code></td><td>array</td><td>交易列表，见下表。</td></tr>
-    </tbody></table>
-    <h4>响应字段（<code>items[]</code>）</h4>
-    <table>
-      <thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>id</code></td><td>string</td><td>交易记录 ID。</td></tr>
-      <tr><td><code>memberUserId</code></td><td>string</td><td>会员用户 ID。</td></tr>
-      <tr><td><code>cardAccountId</code></td><td>string?</td><td>卡账户 ID。</td></tr>
-      <tr><td><code>txnType</code></td><td>string</td><td>交易类型。</td></tr>
-      <tr><td><code>status</code></td><td>string</td><td>平台交易状态。</td></tr>
-      <tr><td><code>amountMinor</code></td><td>number</td><td>带符号金额（最小单位）。</td></tr>
-      <tr><td><code>amount</code></td><td>string</td><td>绝对值金额（两位小数）。</td></tr>
-      <tr><td><code>currency</code></td><td>string</td><td>币种。</td></tr>
-      <tr><td><code>occurredAt</code></td><td>string</td><td>发生时间（ISO）。</td></tr>
-      <tr><td><code>merchantReference</code></td><td>string?</td><td>商户侧引用。</td></tr>
-      <tr><td><code>channelReference</code></td><td>string?</td><td>渠道侧引用。</td></tr>
-      <tr><td><code>narrative</code></td><td>string?</td><td>叙述/摘要。</td></tr>
-      <tr><td><code>merchantDescription</code></td><td>string?</td><td>受理商户描述。</td></tr>
-      <tr><td><code>channelCode</code></td><td>string?</td><td>渠道编码。</td></tr>
-      <tr><td><code>channelStatus</code></td><td>string?</td><td>渠道状态。</td></tr>
-      <tr><td><code>channelDetailedStatus</code></td><td>string?</td><td>渠道细状态。</td></tr>
-      <tr><td><code>feeSnapshotAvailable</code></td><td>boolean</td><td>是否有落库手续费快照。</td></tr>
-      <tr><td><code>feeTotalMinorSnapshot</code> 等</td><td>—</td><td>快照字段：总额、规则来源/ID/表、摘要等（有快照时出现）。</td></tr>
-      <tr><td><code>feeEstimateAvailable</code></td><td>boolean</td><td>是否按当前规则给出预估手续费。</td></tr>
-      <tr><td><code>feeEstimateMinor</code> / <code>feeEstimate</code></td><td>number / string?</td><td>预估手续费。</td></tr>
-      <tr><td><code>feeEstimateNote</code> 等</td><td>string?</td><td>预估说明 / 与快照对比说明。</td></tr>
-      <tr><td><code>merchantCode</code></td><td>string</td><td>商户编码（项级）。</td></tr>
-    </tbody></table>
-    <p>无单笔交易详情接口；请用本分页 + 筛选获取。</p>
-
-    <h3 id="api-mcc">7.22 商户类别（MCC）</h3>
-    <div class="path"><span class="method m-get">GET</span> /open/v1/slash-catalog/merchant-categories</div>
-    <h4>查询参数</h4><p><code>cursor</code>：可选，游标分页。</p>
-    <h4>请求示例</h4>
-    <pre><code>GET {MERCHANT_API_BASE}/open/v1/slash-catalog/merchant-categories
-Headers: 签名头（§2）
-（无请求体）</code></pre>
-    <h4>响应 <code>data</code></h4>
-    <pre><code>{
-  "items": [
-    { "id": "merchant_category_xxx", "name": "Grocery Stores", "code": "5411" }
-  ],
-  "cursor": "next_page_token_or_null"
-}</code></pre>
-    <h4>响应字段</h4>
-    <table>
-      <thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>items</code></td><td>array</td><td>MCC 列表。</td></tr>
-      <tr><td><code>items[].id</code></td><td>string</td><td>类别资源 ID（配置规则时可用）。</td></tr>
-      <tr><td><code>items[].name</code></td><td>string</td><td>类别名称。</td></tr>
-      <tr><td><code>items[].code</code></td><td>string</td><td>MCC 四位码，如 <code>5411</code>。</td></tr>
-      <tr><td><code>cursor</code></td><td>string?</td><td>下一页游标；无更多为 <code>null</code>。</td></tr>
-    </tbody></table>
-    <p><strong>兼容别名</strong>（建议迁移至本路径）：<code>GET /open/v1/mcc</code>，行为相同。</p>
-
-    <h3 id="api-merchants">7.23 受理商户搜索</h3>
-    <div class="path"><span class="method m-get">GET</span> /open/v1/slash-catalog/merchants</div>
-    <h4>查询参数</h4>
-    <table>
-      <thead><tr><th>参数</th><th>必填</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>q</code></td><td>否</td><td>名称/ID 关键字。</td></tr>
-      <tr><td><code>page</code> / <code>size</code></td><td>否</td><td>默认 0 / 20，最大 100。</td></tr>
-      <tr><td><code>ensureIds</code></td><td>否</td><td>逗号分隔受理商户 ID，保证回显已选项。</td></tr>
-    </tbody></table>
-    <h4>请求示例</h4>
-    <pre><code>GET {MERCHANT_API_BASE}/open/v1/slash-catalog/merchants?q=AMAZON&amp;page=0&amp;size=20
-Headers: 签名头（§2）
-（无请求体）</code></pre>
-    <h4>响应 <code>data</code></h4>
-    <pre><code>{
-  "total": 1200,
-  "source": "LOCAL_DB",
-  "lastSyncAt": "2026-06-18T10:00:00Z",
-  "items": [
-    { "id": "ext_merchant_xxx", "name": "AMAZON", "label": "AMAZON (ext_merchant_xxx)" }
-  ],
-  "merchantCode": "M..."
-}</code></pre>
-    <h4>响应字段</h4>
-    <table>
-      <thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>total</code></td><td>number</td><td>匹配总数。</td></tr>
-      <tr><td><code>source</code></td><td>string</td><td>数据来源，如 <code>LOCAL_DB</code>。</td></tr>
-      <tr><td><code>lastSyncAt</code></td><td>string?</td><td>最近同步时间（ISO）。</td></tr>
-      <tr><td><code>items</code></td><td>array</td><td>受理商户列表。</td></tr>
-      <tr><td><code>items[].id</code></td><td>string</td><td>受理商户 ID（配置 merchantRule 时使用）。</td></tr>
-      <tr><td><code>items[].name</code></td><td>string</td><td>名称。</td></tr>
-      <tr><td><code>items[].label</code></td><td>string</td><td>展示标签。</td></tr>
-      <tr><td><code>merchantCode</code></td><td>string</td><td>当前对接商户编码。</td></tr>
-    </tbody></table>
-
-    <h3 id="api-constraint-ref">7.24 消费约束静态参考</h3>
-    <div class="path"><span class="method m-get">GET</span> /open/v1/spending-constraint/reference</div>
-    <p>组装 <code>PATCH .../spending-constraint</code> 前的 MCC/国家短列表、周期枚举等静态参考。</p>
-    <h4>请求示例</h4>
-    <pre><code>GET {MERCHANT_API_BASE}/open/v1/spending-constraint/reference
-Headers: 签名头（§2）
-（无请求体）</code></pre>
-    <h4>响应 <code>data</code></h4>
-    <pre><code>{
-  "restrictions": ["allowlist", "blacklist"],
-  "utilizationPresets": ["daily", "weekly", "monthly", "yearly", "collective"],
-  "mccShortlist": [{ "code": "5411", "label": "5411 — 超市 / Grocery" }],
-  "countryShortlist": [{ "code": "US", "label": "US — 美国" }],
-  "fieldNotes": {
-    "merchantCategoryRule": "商户类别 ID，见 merchant-categories",
-    "merchantRule": "受理商户 ID，见 merchants 搜索"
-  },
-  "merchantCode": "M..."
-}</code></pre>
-    <h4>响应字段</h4>
-    <table>
-      <thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>restrictions</code></td><td>string[]</td><td>限制模式枚举：<code>allowlist</code> / <code>blacklist</code>。</td></tr>
-      <tr><td><code>utilizationPresets</code></td><td>string[]</td><td>周期预设枚举。</td></tr>
-      <tr><td><code>mccShortlist</code></td><td>array</td><td>常用 MCC：<code>code</code> + <code>label</code>。</td></tr>
-      <tr><td><code>countryShortlist</code></td><td>array</td><td>常用国家：<code>code</code> + <code>label</code>。</td></tr>
-      <tr><td><code>fieldNotes</code></td><td>object</td><td>字段填写提示（如类别 ID、受理商户 ID 来源）。</td></tr>
-      <tr><td><code>merchantCode</code></td><td>string</td><td>商户编码。</td></tr>
-    </tbody></table>
-
-    <h3 id="api-fees">7.25 查询生效手续费规则并试算</h3>
-    <div class="path"><span class="method m-get">GET</span> /open/v1/merchant-fee-rules/effective</div>
-    <h4>查询参数</h4>
-    <table>
-      <thead><tr><th>参数</th><th>必填</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>feeType</code></td><td><strong>是</strong></td><td><code>CARD_ISSUANCE</code> / <code>TRANSACTION</code> / <code>REFUND</code> / <code>MANUAL_TOP_UP</code> / <code>WITHDRAWAL</code></td></tr>
-      <tr><td><code>baseAmountMinor</code></td><td>否</td><td>计费基数（最小货币单位整数）。</td></tr>
-    </tbody></table>
-    <h4>请求示例</h4>
-    <pre><code>GET {MERCHANT_API_BASE}/open/v1/merchant-fee-rules/effective?feeType=TRANSACTION&amp;baseAmountMinor=10000
-Headers: 签名头（§2）
-（无请求体）</code></pre>
-    <h4>响应 <code>data</code></h4>
-    <pre><code>{
-  "feeType": "TRANSACTION",
-  "source": "MERCHANT",
-  "quotedFeeMinor": "30",
-  "summary": "人类可读规则摘要",
-  "merchantCode": "M..."
-}</code></pre>
-    <h4>响应字段</h4>
-    <table>
-      <thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>feeType</code></td><td>string</td><td>与请求一致的费用类型。</td></tr>
-      <tr><td><code>source</code></td><td>string</td><td><code>MERCHANT</code>（商户规则）或 <code>DEFAULT</code>（全局默认）。</td></tr>
-      <tr><td><code>ruleId</code></td><td>string</td><td>生效规则 ID。</td></tr>
-      <tr><td><code>ruleTable</code></td><td>string</td><td>规则表，如 <code>fee_rule_merchant</code>。</td></tr>
-      <tr><td><code>calculationMode</code></td><td>string</td><td>计费模式。</td></tr>
-      <tr><td><code>currency</code></td><td>string</td><td>计费币种。</td></tr>
-      <tr><td><code>fixedFeeMinor</code></td><td>string</td><td>固定费（最小单位）。</td></tr>
-      <tr><td><code>minFeeMinor</code></td><td>string</td><td>最低费。</td></tr>
-      <tr><td><code>ratePercent</code></td><td>—</td><td>费率（若有）。</td></tr>
-      <tr><td><code>tierRef</code></td><td>—</td><td>阶梯引用（若有）。</td></tr>
-      <tr><td><code>appliesTo</code></td><td>—</td><td>适用范围（若有）。</td></tr>
-      <tr><td><code>baseAmountMinor</code></td><td>string</td><td>试算基数（最小单位）。</td></tr>
-      <tr><td><code>foreignTransaction</code></td><td>boolean</td><td>试算是否按跨境假设（默认 <code>true</code>）。</td></tr>
-      <tr><td><code>quotedFeeMinor</code></td><td>string</td><td>试算出的手续费（最小单位）。</td></tr>
-      <tr><td><code>summary</code></td><td>string</td><td>人类可读规则摘要。</td></tr>
-      <tr><td><code>merchantCode</code></td><td>string</td><td>商户编码。</td></tr>
-    </tbody></table>
-
-    <h2 id="s8">8. 发卡 Webhook 出站通知</h2>
-    <p>本节为 <strong>VCC → 商户</strong> 方向的 HTTP 回调，与 <a href="#s2">§2 Open API 入站签名</a> <strong>不是同一套算法</strong>，请勿使用 API SecretKey 验签 Webhook，亦勿用 Webhook Secret 调用 Open API。</p>
-
-    <table>
-      <thead><tr><th>对比项</th><th>Open API（商户 → VCC）</th><th>Webhook（VCC → 商户）</th></tr></thead>
-      <tbody>
-      <tr><td>方向</td><td>商户请求 <code>/open/v1/**</code></td><td>平台 POST 至商户配置的回调 URL</td></tr>
-      <tr><td>密钥</td><td>API <strong>SecretKey</strong></td><td>Webhook <strong>Secret</strong>（门户单独配置）</td></tr>
-      <tr><td>签名输入</td><td>Canonical Request（4 行）</td><td><code>timestamp + nonce + body</code> 字符串拼接</td></tr>
-      <tr><td><code>X-Vcc-Timestamp</code></td><td>Unix <strong>秒</strong></td><td>Unix <strong>毫秒</strong></td></tr>
-      <tr><td>配置</td><td>member-portal → Open API 凭证</td><td>member-portal → <strong>Webhook 设置</strong></td></tr>
-    </tbody></table>
-
-    <h3>8.1 配置与订阅</h3>
-    <ol>
-      <li>登录 <strong>member-portal</strong>，进入 <strong>Webhook 设置</strong>。</li>
-      <li>填写回调 URL（生产须 <strong>HTTPS</strong>；禁止内网/metadata 等 SSRF 目标）。</li>
-      <li>订阅事件类型；保存后获得 <strong>Webhook Secret</strong>（仅创建/轮换时明文展示一次）。</li>
-      <li>使用「测试投递」验证连通性；「投递日志」可查询与手动重试失败记录。</li>
-    </ol>
-    <p>配置接口位于 <code>/api/v1/member/webhook-config</code>（会员 JWT），<strong>不在</strong> <code>/open/v1</code> 白名单。</p>
-
-    <h3>8.2 回调 HTTP 约定</h3>
-    <table>
-      <thead><tr><th>项</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td>方法</td><td><strong>POST</strong></td></tr>
-      <tr><td>Content-Type</td><td><code>application/json; charset=utf-8</code></td></tr>
-      <tr><td>成功响应</td><td>HTTP <strong>2xx</strong>（建议 200）；非 2xx 可能触发重试</td></tr>
-      <tr><td>超时</td><td>平台侧连接/读超时约 5s / 10s（以部署为准）</td></tr>
-    </tbody></table>
-
-    <h3>8.3 签名 HTTP 头</h3>
-    <table>
-      <thead><tr><th>HTTP 头</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>X-Vcc-Signature</code></td><td>HMAC-SHA256 签名，<strong>小写十六进制</strong></td></tr>
-      <tr><td><code>X-Vcc-Timestamp</code></td><td>签名时 Unix 时间戳，单位 <strong>毫秒</strong>（UTC）</td></tr>
-      <tr><td><code>X-Vcc-Nonce</code></td><td>16 字节随机数的小写 hex（32 字符）</td></tr>
-      <tr><td><code>X-Vcc-Event-Id</code></td><td>事件唯一 ID，须与 JSON 内 <code>eventId</code> 一致</td></tr>
-    </tbody></table>
-
-    <h3>8.4 验签算法</h3>
-    <ol>
-      <li>读取请求体<strong>原始字节</strong>，UTF-8 解码为字符串 <code>body</code>（勿重新序列化 JSON）。</li>
-      <li>读取头 <code>X-Vcc-Timestamp</code>、<code>X-Vcc-Nonce</code>、<code>X-Vcc-Signature</code>。</li>
-      <li>拼接待签名字符串（<strong>无分隔符</strong>）：<code>payload = String(timestamp) + nonce + body</code></li>
-      <li>计算：<code>expected = hex_lower( HMAC_SHA256( UTF8(WebhookSecret), UTF8(payload) ) )</code></li>
-      <li>恒定时间比较 <code>expected</code> 与 <code>X-Vcc-Signature</code>。</li>
-    </ol>
-    <pre><code>payload   = timestamp + nonce + body
-Signature = 小写十六进制( HMAC_SHA256( UTF8(WebhookSecret), UTF8(payload) ) )</code></pre>
-    <div class="note">建议（可选）：校验 <code>X-Vcc-Timestamp</code> 与当前时间偏差（如 ±5 分钟）；短期缓存 <code>X-Vcc-Nonce</code> 防重放。</div>
-
-    <h3>8.5 事件类型</h3>
-    <table>
-      <thead><tr><th>eventType</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>merchant.webhook.transaction.updated</code></td><td>平台交易状态变更（清算/入账等；<strong>不含</strong>实时授权）</td></tr>
-      <tr><td><code>merchant.webhook.wallet.deposit.posted</code></td><td>数币自动充值入账成功（含链上 <code>txHash</code>；<strong>不含</strong>人工充值）</td></tr>
-      <tr><td><code>merchant.webhook.wallet.card_binding.verification_code</code></td><td>钱包绑卡验证码就绪</td></tr>
-      <tr><td><code>merchant.webhook.test</code></td><td>门户「测试投递」（联调）</td></tr>
-    </tbody></table>
-    <p>同一 <code>eventId</code> 成功投递后平台不重复推送；商户侧仍建议以 <code>eventId</code> 做业务去重。</p>
-
-    <h3>8.6 事件载荷</h3>
-    <p>外层 JSON 结构：</p>
-    <pre><code>{
-  "eventType": "merchant.webhook.transaction.updated",
-  "eventId": "mwh_evt_txn_abc123",
-  "occurredAt": "2026-06-23T09:15:57.424Z",
-  "merchantCode": "M20260618123735000001",
-  "data": { }
-}</code></pre>
-    <h4>交易变更 — <code>data</code> 示例</h4>
-    <pre><code>{
-  "transactionId": "txn_abc123",
-  "cardAccountId": 10001,
-  "txnType": "CHANNEL",
-  "status": "SETTLED",
-  "amountMinor": 100,
-  "currency": "USD",
-  "occurredAt": "2026-06-23T09:15:57.424Z",
-  "merchantReference": "your-ref-001",
-  "channelReference": "abc123"
-}</code></pre>
-    <h4>交易变更 — <code>data</code> 字段</h4>
-    <table>
-      <thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>transactionId</code></td><td>string</td><td>平台侧交易 ID，格式 <code>txn_{channelReference}</code>。</td></tr>
-      <tr><td><code>cardAccountId</code></td><td>number | null</td><td>卡账户 ID；未关联到卡时可能为 <code>null</code>。</td></tr>
-      <tr><td><code>txnType</code></td><td>string</td><td>交易类型（大写），见下表「txnType 码值」。</td></tr>
-      <tr><td><code>status</code></td><td>string</td><td>交易状态（大写），见下表「status 码值」。</td></tr>
-      <tr><td><code>amountMinor</code></td><td>number</td><td>金额，最小货币单位（如 USD 为分）；符号与平台记账一致。</td></tr>
-      <tr><td><code>currency</code></td><td>string</td><td>币种，如 <code>USD</code>。</td></tr>
-      <tr><td><code>occurredAt</code></td><td>string</td><td>业务发生时间，ISO-8601 UTC。</td></tr>
-      <tr><td><code>merchantReference</code></td><td>string | null</td><td>商户侧单号/引用（若有）。</td></tr>
-      <tr><td><code>channelReference</code></td><td>string</td><td>平台侧渠道交易引用；与 <code>GET /open/v1/transactions</code> 及幂等去重关联。</td></tr>
-    </tbody></table>
-    <h4>txnType 码值</h4>
-    <p>平台统一转为<strong>大写</strong>；缺省为 <code>CHANNEL</code>。本事件在交易<strong>清算/入账等后续阶段</strong>推送，<strong>不含</strong>实时授权。</p>
-    <table>
-      <thead><tr><th>码值</th><th>含义</th><th>Webhook 说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>CHANNEL</code></td><td>渠道同步交易</td><td><strong>最常见</strong>；平台同步渠道交易后的默认类型。</td></tr>
-      <tr><td><code>AUTHORIZATION</code></td><td>授权</td><td>实时授权阶段<strong>不会</strong>推送本事件。</td></tr>
-      <tr><td><code>CAPTURE</code></td><td>请款 / 捕获</td><td>可能出现。</td></tr>
-      <tr><td><code>SALE</code> / <code>PURCHASE</code></td><td>消费</td><td>可能出现。</td></tr>
-      <tr><td><code>SETTLEMENT</code></td><td>清算</td><td>可能出现。</td></tr>
-      <tr><td><code>REFUND</code></td><td>退款</td><td>可能出现。</td></tr>
-      <tr><td><code>VOID</code></td><td>撤销</td><td>可能出现。</td></tr>
-      <tr><td><code>REVERSAL</code></td><td>冲正</td><td>可能出现。</td></tr>
-      <tr><td><code>FEE</code></td><td>费用</td><td>可能出现。</td></tr>
-      <tr><td><code>其他大写字符串</code></td><td>扩展类型</td><td>未在上表列出时按平台原值大写推送；请兼容未知值。</td></tr>
-    </tbody></table>
-    <h4>status 码值</h4>
-    <p>平台将上游状态映射为大写枚举；未命中下表时按原值大写推送。本事件<strong>不推送</strong> <code>AUTHORIZED</code>（实时授权）。</p>
-    <table>
-      <thead><tr><th>码值</th><th>含义</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>SETTLED</code></td><td>已清算 / 已入账</td><td>交易已完成清算或入账</td></tr>
-      <tr><td><code>PENDING</code></td><td>处理中</td><td>尚未终态</td></tr>
-      <tr><td><code>DECLINED</code></td><td>已拒绝</td><td>交易被拒绝</td></tr>
-      <tr><td><code>FAILED</code></td><td>失败</td><td>处理失败</td></tr>
-      <tr><td><code>CANCELLED</code></td><td>已取消</td><td>交易已取消</td></tr>
-      <tr><td><code>RETURNED</code></td><td>已退回</td><td>资金或交易已退回</td></tr>
-      <tr><td><code>REFUNDED</code></td><td>已退款</td><td>已完成退款</td></tr>
-      <tr><td><code>REVERSED</code></td><td>已冲正</td><td>交易已冲正</td></tr>
-      <tr><td><code>AUTHORIZED</code></td><td>已授权</td><td>仅内部授权阶段；<strong>不会</strong>出现在本 Webhook 事件中</td></tr>
-      <tr><td><code>其他大写字符串</code></td><td>扩展状态</td><td>未映射时原样大写；请兼容未知值</td></tr>
-    </tbody></table>
-    <div class="note"><code>data</code> 中不含 <code>memberUserId</code>；请用 <code>cardAccountId</code> / <code>channelReference</code> 关联业务。实时授权阶段不会触发本事件。同一 <code>channelReference</code> 状态变更会复用稳定 <code>eventId</code>，成功投递后不会重复推送。</div>
-    <h4 id="deposit-posted">数币充值到账 — <code>data</code> 示例</h4>
-    <pre><code>{
-  "depositId": 10086,
-  "txHash": "0xabc...def",
-  "chainId": 1,
-  "chainName": "Ethereum",
-  "chainSymbol": "ETH",
-  "fromAddress": "0xfrom...",
-  "toAddress": "0xto...",
-  "amountMinor": 10000,
-  "amount": "100.00",
-  "currency": "USD",
-  "amountRaw": "100000000",
-  "payCurrencyId": 2,
-  "payRechargeId": 778899,
-  "channelCode": "PAY_PROTOCOL",
-  "walletOperationId": "8842",
-  "walletId": "54",
-  "occurredAt": "2026-08-10T06:15:57.424Z"
-}</code></pre>
-    <h4>数币充值到账 — <code>data</code> 字段</h4>
-    <table>
-      <thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead>
-      <tbody>
-      <tr><td><code>depositId</code></td><td>number</td><td>平台充值单 ID。</td></tr>
-      <tr><td><code>txHash</code></td><td>string</td><td>链上交易哈希（内部 <code>transferHash</code>）。</td></tr>
-      <tr><td><code>chainId</code></td><td>number</td><td>Pay Protocol 链 ID。</td></tr>
-      <tr><td><code>chainName</code> / <code>chainSymbol</code></td><td>string?</td><td>链名称/符号（有目录数据时返回）。</td></tr>
-      <tr><td><code>fromAddress</code> / <code>toAddress</code></td><td>string?</td><td>转出/收款地址。</td></tr>
-      <tr><td><code>amountMinor</code></td><td>number</td><td>入账金额（最小货币单位，USD 为分）。</td></tr>
-      <tr><td><code>amount</code></td><td>string</td><td>入账金额（两位小数）。</td></tr>
-      <tr><td><code>currency</code></td><td>string</td><td>入账币种，当前为 <code>USD</code>。</td></tr>
-      <tr><td><code>amountRaw</code></td><td>string?</td><td>渠道原始金额字符串。</td></tr>
-      <tr><td><code>payCurrencyId</code></td><td>number</td><td>Pay 币种 ID。</td></tr>
-      <tr><td><code>payRechargeId</code></td><td>number</td><td>渠道充值单 ID；与 <code>eventId</code> 幂等相关。</td></tr>
-      <tr><td><code>channelCode</code></td><td>string</td><td>渠道编码，如 <code>PAY_PROTOCOL</code>。</td></tr>
-      <tr><td><code>walletOperationId</code></td><td>string</td><td>钱包入账操作 ID。</td></tr>
-      <tr><td><code>walletId</code></td><td>string?</td><td>主钱包账户 ID（若可解析）。</td></tr>
-      <tr><td><code>occurredAt</code></td><td>string</td><td>入账完成时间（ISO-8601）。</td></tr>
-    </tbody></table>
-    <div class="tip">
-        <strong>到账通知边界：</strong>Open API <strong>没有</strong>数币充值地址 / 充值单查询接口。
-        链上到账并入账成功后，仅通过本事件通知。补偿查询请用
-        <code>GET /open/v1/wallets</code> 与 <code>GET /open/v1/wallet-ledger</code>。
-      </div>
-      <div class="note">
-        仅在数币自动充值<strong>入账成功（POSTED）</strong>后推送；KYT 中风险待审、高风险拒绝时不推送。
-        未配置 Webhook、未订阅本事件或配置已禁用时，入账仍完成但不回调。
-        门户「人工充值申请」（银行转账审批）<strong>不</strong>触发本事件。
-        数币链路若经 Ops 审核后仍走同一入账，<strong>会</strong>推送。
-        稳定 <code>eventId</code>：<code>mwh_evt_deposit_{CHANNEL}_{payRechargeId}</code>。
-        本事件走<strong>发卡 Webhook</strong>（门户 Webhook 设置），不是收单 Webhook。
-      </div>
-    <h4>绑卡验证码 — <code>data</code> 示例</h4>
-    <pre><code>{
-  "memberUserId": 32,
-  "inboundId": 1782206824529,
-  "walletId": 10,
-  "cardAccountId": 10001,
-  "bindingCode": "123456",
-  "expiresAt": "2026-06-23T09:22:31.285Z",
-  "channelCode": "VCC"
-}</code></pre>
-    <div class="note">Webhook 回调 <code>data.bindingCode</code> 为完整验证码；门户投递日志 API 可能对验证码脱敏展示。</div>
-
-    <h3>8.7 重试</h3>
-    <table>
-      <thead><tr><th>商户响应</th><th>平台行为</th></tr></thead>
-      <tbody>
-      <tr><td>HTTP 2xx</td><td>标记成功，不再重试</td></tr>
-      <tr><td>HTTP 5xx 或连接/超时</td><td>指数退避自动重试（默认最多 3 次）</td></tr>
-      <tr><td>HTTP 4xx</td><td>一般不再自动重试</td></tr>
-    </tbody></table>
-    <p>请快速返回 2xx 并异步处理业务，避免长时间阻塞导致超时重试。</p>
-
-    <h3>8.8 验签示例</h3>
-    <h4>Python</h4>
-    <pre><code>import hmac, hashlib
-
-def verify_vcc_webhook(body_utf8: str, secret: str, headers: dict) -> bool:
-    ts = headers.get("X-Vcc-Timestamp") or headers.get("x-vcc-timestamp")
-    nonce = headers.get("X-Vcc-Nonce") or headers.get("x-vcc-nonce")
-    sig = (headers.get("X-Vcc-Signature") or headers.get("x-vcc-signature") or "").lower()
-    if not ts or not nonce or not sig:
-        return False
-    payload = f"{ts}{nonce}{body_utf8 or ''}"
-    expected = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
-    return hmac.compare_digest(expected, sig)</code></pre>
-    <h4>Node.js</h4>
-    <pre><code>import crypto from 'crypto';
-
-function verifyVccWebhook(bodyUtf8, secret, headers) {
-  const ts = headers['x-vcc-timestamp'];
-  const nonce = headers['x-vcc-nonce'];
-  const sig = (headers['x-vcc-signature'] || '').toLowerCase();
-  if (!ts || !nonce || !sig) return false;
-  const payload = `${ts}${nonce}${bodyUtf8 ?? ''}`;
-  const expected = crypto.createHmac('sha256', secret).update(payload, 'utf8').digest('hex');
-  const a = Buffer.from(expected, 'hex');
-  const b = Buffer.from(sig, 'hex');
-  return a.length === b.length &amp;&amp; crypto.timingSafeEqual(a, b);
-}</code></pre>
-    <h4>Java</h4>
-    <pre><code>Mac mac = Mac.getInstance("HmacSHA256");
-mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
-String payload = timestamp + nonce + (bodyUtf8 == null ? "" : bodyUtf8);
-byte[] expected = mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
-// 与 HexFormat 解析的 X-Vcc-Signature 做 MessageDigest.isEqual 比较</code></pre>
-    <p>参考实现：仓库 <code>open-api-client-demo/src/webhook-signature.mjs</code>；本地全链路测试：<code>npm run test:webhook</code>。</p>
-
-    <h2 id="s9">9. 典型对接流程</h2>
-
-    <h3>9.1 开卡并归属卡组（API 全链路）</h3>
-    <ol class="flow">
-      <li><code>POST /card-groups</code> — 创建卡组（或 <code>GET /card-groups</code> 选用已有）</li>
-      <li><code>POST /card-groups/{id}/fund</code> — 从主钱包划入子池</li>
-      <li><code>GET /wallets</code> — 确认 MAIN 与 CARD_GROUP 子池余额</li>
-      <li><code>GET /card-products</code> — 确认 <code>cardProductId</code>、<code>spendingConstraintCeilingJson</code></li>
-      <li><code>POST /card-issuance-tasks</code> — <code>{ "cardProductId", "platformCardGroupId" }</code></li>
-      <li><code>GET /cards/{id}</code> — 确认 <code>cardGroupLabel</code></li>
-    </ol>
-
-    <h3>9.2 删除卡组</h3>
-    <ol class="flow">
-      <li><code>PATCH /cards/{id}/card-group</code> — 移出卡组内全部卡片（<code>platformCardGroupId: null</code>）</li>
-      <li><code>POST /card-groups/{id}/release</code> — 划回全部子池余额</li>
-      <li><code>DELETE /card-groups/{id}</code> — 软删除</li>
-    </ol>
-
-    <h3>9.3 配置消费约束</h3>
-    <ol class="flow">
-      <li><code>GET /spending-constraint/reference</code></li>
-      <li><code>GET /slash-catalog/merchant-categories</code></li>
-      <li><code>GET /slash-catalog/merchants?q=...</code></li>
-      <li><code>GET /cards/{id}/spending-constraint</code></li>
-      <li><code>PATCH /cards/{id}/spending-constraint</code></li>
-      <li><code>GET /cards/{id}/spending-utilization</code></li>
-    </ol>
-
-    <h3>9.4 开卡后改挂卡组</h3>
-    <ol class="flow">
-      <li><code>GET /card-groups</code></li>
-      <li><code>PATCH /cards/{id}/card-group</code> — <code>{ "platformCardGroupId": 9 }</code> 或 <code>null</code> 移出</li>
-      <li><code>GET /cards/{id}</code> — 确认展示字段</li>
-    </ol>
-
-  
-    <h3 id="flow-deposit">9.5 数币充值到账（Webhook）</h3>
-    <ol class="flow">
-      <li>运营开通发卡 Open API（ISSUING 凭证）与数币充值能力；会员在门户生成链上充值地址。</li>
-      <li>门户 <strong>Webhook 设置</strong>：HTTPS 回调 URL + 订阅 <code>merchant.webhook.wallet.deposit.posted</code>，保存 Webhook Secret。</li>
-      <li>用户链上转入 → 平台入账成功后 POST 本事件（含 <code>txHash</code>、<code>walletOperationId</code>）。</li>
-      <li>商户验签并以 <code>eventId</code> 去重；可用 <code>GET /wallets</code> / <code>GET /wallet-ledger</code> 核对余额与流水。</li>
-    </ol>
-
-    <h2 id="checklist">10. 联调检查清单</h2>
-    <ul class="checklist">
-      <li>使用 <strong>ISSUING</strong> AccessKey；用 ACQUIRING Key 调发卡路径返回 <code>40314</code></li>
-      <li>签名头齐全；无 query 时 Canonical 第三行为空字符串；无 body 时对空字节做 SHA-256</li>
-      <li>写操作携带 <code>Idempotency-Key</code>；DELETE 卡组不要发送 <code>{}</code></li>
-      <li>钱包只读：<code>GET /wallets</code>、<code>GET /wallet-ledger</code> 可见入账；Open API 无充值/提现写接口</li>
-      <li>门户订阅数币到账事件后，入账成功可收到 <code>merchant.webhook.wallet.deposit.posted</code>，验签算法与 Open API 入站不同</li>
-      <li>Webhook 须返回 HTTP 2xx；4xx 一般不自动重试，5xx/超时会退避重试</li>
-    </ul>
-
-    <h2 id="changelog">11. 变更记录</h2>
-    <table>
-      <thead><tr><th>日期</th><th>变更</th></tr></thead>
-      <tbody>
-        <tr><td>2026-08-14</td><td>版式与收单商户文档对齐（侧栏目录、路径徽章、元信息卡）；明确数币到账仅 Webhook、无 Open API 充值查询接口；补充联调清单与到账流程</td></tr>
-        <tr><td>2026-08-10</td><td>各接口补充请求/响应字段；新增 Webhook <code>merchant.webhook.wallet.deposit.posted</code>；卡消费约束 PATCH 明确 Slash 同构 body</td></tr>
-        <tr><td>2026-06-26</td><td>新增卡组创建/删除及主钱包↔卡组划款</td></tr>
-        <tr><td>2026-06-23</td><td>新增商户 Webhook 出站通知（验签、事件类型）</td></tr>
-        <tr><td>2026-06-18</td><td>卡组只读/绑卡、消费约束目录、约束读取与用量；<code>GET /cards</code> 分页；开卡支持 <code>platformCardGroupId</code></td></tr>
-      </tbody>
-    </table>
-
-      <footer>
-        <p>发卡 Open API 商户接口文档 · 与实现不一致时以运行中服务为准。</p>
-        <p>收单接口见 <a href="acquiring-merchant-api.html">acquiring-merchant-api.html</a>。</p>
-      </footer>
-    </main>
-  </div>
+def verify_notification(secret, headers, raw_body, allowed_skew_ms):
+    # headers 由 HTTP 框架转换为小写键；raw_body 为未修改的 bytes。
+    stamp = headers.get(&quot;x-vcc-timestamp&quot;, &quot;&quot;)
+    nonce = headers.get(&quot;x-vcc-nonce&quot;, &quot;&quot;)
+    signature = headers.get(&quot;x-vcc-signature&quot;, &quot;&quot;)
+    if not re.fullmatch(r&quot;[0-9]+&quot;, stamp):
+        return None
+    if not re.fullmatch(r&quot;[0-9a-f]{32}&quot;, nonce):
+        return None
+    if not re.fullmatch(r&quot;[0-9a-f]{64}&quot;, signature):
+        return None
+    if abs(int(time.time() * 1000) - int(stamp)) &gt; allowed_skew_ms:
+        return None
+    payload = (stamp + nonce).encode(&quot;utf-8&quot;) + raw_body
+    expected = hmac.new(secret.encode(&quot;utf-8&quot;), payload, hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected, signature):
+        return None
+    try:
+        event = json.loads(raw_body)
+    except (ValueError, UnicodeDecodeError):
+        return None
+    if not isinstance(event, dict) or not event.get(&quot;eventId&quot;):
+        return None
+    if event[&quot;eventId&quot;] != headers.get(&quot;x-vcc-event-id&quot;):
+        return None
+    return event  # 接着按 eventId 持久去重；可靠入队后再返回 2xx。
+</code></pre>
+<p><code>allowed_skew_ms</code> 由商户接收策略指定。该函数不替代持久去重；返回事件后还需校验 <code>eventType</code>、业务资源归属及字段类型。验证码不记入普通日志。</p>
+<h3 id="webhook-envelope">13.3 通知公共信封</h3>
+<pre tabindex="0"><code class="language-json">{&quot;eventType&quot;:&quot;merchant.webhook.issuing.operation.updated&quot;,&quot;eventId&quot;:&quot;event-example-001&quot;,&quot;occurredAt&quot;:&quot;2026-11-17T08:03:00Z&quot;,&quot;merchantCode&quot;:&quot;M_EXAMPLE&quot;,&quot;data&quot;:{}}
+</code></pre>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>字段</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>eventType</code></td>
+<td>string</td>
+<td>事件类型</td>
+</tr>
+<tr>
+<td><code>eventId</code></td>
+<td>string</td>
+<td>事件去重 ID，与请求头一致</td>
+</tr>
+<tr>
+<td><code>occurredAt</code></td>
+<td>string(date-time)</td>
+<td>事件发生时间</td>
+</tr>
+<tr>
+<td><code>merchantCode</code></td>
+<td>string / null</td>
+<td>商户编码，部分事件可空；不能作为唯一验真依据</td>
+</tr>
+<tr>
+<td><code>data</code></td>
+<td>object</td>
+<td>事件数据，见下文</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="operation-webhook">13.4 卡操作更新通知</h3>
+<p>事件：<code>merchant.webhook.issuing.operation.updated</code>。</p>
+<pre tabindex="0"><code class="language-json">{&quot;operationId&quot;:123,&quot;issuanceTaskId&quot;:456,&quot;cardId&quot;:789,&quot;operationType&quot;:&quot;CREATE&quot;,&quot;status&quot;:&quot;SUCCEEDED&quot;,&quot;stage&quot;:&quot;SUCCEEDED&quot;,&quot;amountMinor&quot;:1000,&quot;feeMinor&quot;:20,&quot;currency&quot;:&quot;USD&quot;,&quot;fundingState&quot;:&quot;COMMITTED&quot;,&quot;errorCode&quot;:&quot;CARD_CREATED_AND_PAID&quot;,&quot;terminal&quot;:true,&quot;recoveryRequired&quot;:false,&quot;createdAt&quot;:&quot;2026-11-17T08:00:00Z&quot;,&quot;updatedAt&quot;:&quot;2026-11-17T08:03:00Z&quot;}
+</code></pre>
+<p><code>data</code> 包含<a href="#operation-model">卡操作模型</a>字段，并增加 <code>fundingState</code>（string）：</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>值</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>HELD</code></td>
+<td>原本金及服务费处于预占状态</td>
+</tr>
+<tr>
+<td><code>COMMITTED</code></td>
+<td>原预占已确认</td>
+</tr>
+<tr>
+<td><code>RELEASED</code></td>
+<td>原预占已释放</td>
+</tr>
+<tr>
+<td><code>NONE</code></td>
+<td>本操作无对应预占</td>
+</tr>
+</tbody>
+</table></div>
+<p>操作查询接口不返回 <code>fundingState</code>。通知用于推动查询；<code>PENDING</code>、待核对或暂时没有通知都不表示已退款。</p>
+<h3 id="transaction-webhook">13.5 交易更新通知</h3>
+<p>事件：<code>merchant.webhook.transaction.updated</code>。响应 <code>data</code> 示例：</p>
+<pre tabindex="0"><code class="language-json">{&quot;transactionId&quot;:&quot;txn_example-transaction-ref&quot;,&quot;cardAccountId&quot;:789,&quot;txnType&quot;:&quot;PURCHASE&quot;,&quot;status&quot;:&quot;POSTED&quot;,&quot;amountMinor&quot;:-500,&quot;currency&quot;:&quot;USD&quot;,&quot;occurredAt&quot;:&quot;2026-11-16T09:00:00Z&quot;,&quot;merchantReference&quot;:null,&quot;channelReference&quot;:&quot;example-transaction-ref&quot;}
+</code></pre>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>字段</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>transactionId</code></td>
+<td>string</td>
+<td>通知交易标识，形式为 <code>txn_{channelReference}</code></td>
+</tr>
+<tr>
+<td><code>cardAccountId</code></td>
+<td>integer(int64) / null</td>
+<td>卡账户 ID</td>
+</tr>
+<tr>
+<td><code>txnType</code>、<code>status</code></td>
+<td>string</td>
+<td>交易类型和状态，可扩展</td>
+</tr>
+<tr>
+<td><code>amountMinor</code></td>
+<td>integer(int64)</td>
+<td>带符号最小单位金额</td>
+</tr>
+<tr>
+<td><code>currency</code></td>
+<td>string</td>
+<td>币种</td>
+</tr>
+<tr>
+<td><code>occurredAt</code></td>
+<td>string(date-time)</td>
+<td>业务发生时间</td>
+</tr>
+<tr>
+<td><code>merchantReference</code></td>
+<td>string / null</td>
+<td>商户引用</td>
+</tr>
+<tr>
+<td><code>channelReference</code></td>
+<td>string</td>
+<td>交易服务引用</td>
+</tr>
+</tbody>
+</table></div>
+<p>通知 <code>transactionId</code> 与 REST 交易记录 <code>id</code> <strong>不是同一套 ID</strong>。分别保存通知标识、渠道引用和卡归属，收到通知后补查 REST，再用 REST <code>id</code> 更新本地交易。通知不包含实时授权；不能只靠此事件实现全量或实时授权查询。</p>
+<h3 id="deposit-webhook">13.6 数币充值到账通知</h3>
+<p>事件：<code>merchant.webhook.wallet.deposit.posted</code>，仅适用于已开通的自动充值到账，不是所有钱包变动的通用通知。</p>
+<pre tabindex="0"><code class="language-json">{&quot;depositId&quot;:1001,&quot;txHash&quot;:&quot;&lt;交易哈希&gt;&quot;,&quot;chainId&quot;:1,&quot;fromAddress&quot;:&quot;&lt;转出地址&gt;&quot;,&quot;toAddress&quot;:&quot;&lt;转入地址&gt;&quot;,&quot;amountMinor&quot;:10000,&quot;amount&quot;:&quot;100.00&quot;,&quot;currency&quot;:&quot;USD&quot;,&quot;amountRaw&quot;:&quot;100&quot;,&quot;payCurrencyId&quot;:1,&quot;payRechargeId&quot;:2001,&quot;channelCode&quot;:null,&quot;walletOperationId&quot;:&quot;904&quot;,&quot;walletId&quot;:&quot;54&quot;,&quot;occurredAt&quot;:&quot;2026-11-17T07:00:00Z&quot;}
+</code></pre>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>字段</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>depositId</code>、<code>payRechargeId</code></td>
+<td>integer(int64)</td>
+<td>到账记录和充值引用</td>
+</tr>
+<tr>
+<td><code>txHash</code></td>
+<td>string / null</td>
+<td>交易哈希</td>
+</tr>
+<tr>
+<td><code>chainId</code>、<code>payCurrencyId</code></td>
+<td>integer</td>
+<td>网络及支付币种标识，以实际值为准</td>
+</tr>
+<tr>
+<td><code>chainName</code>、<code>chainSymbol</code></td>
+<td>string，条件返回</td>
+<td>网络名称及符号</td>
+</tr>
+<tr>
+<td><code>fromAddress</code>、<code>toAddress</code></td>
+<td>string / null</td>
+<td>转出、转入地址</td>
+</tr>
+<tr>
+<td><code>amountMinor</code>、<code>amount</code></td>
+<td>integer(int64)、string</td>
+<td>钱包入账金额及展示值</td>
+</tr>
+<tr>
+<td><code>currency</code></td>
+<td>string</td>
+<td>钱包入账币种 USD</td>
+</tr>
+<tr>
+<td><code>amountRaw</code></td>
+<td>string / null</td>
+<td>原始资产金额字符串，不替代钱包入账金额</td>
+</tr>
+<tr>
+<td><code>channelCode</code></td>
+<td>string / null</td>
+<td>不透明服务标识</td>
+</tr>
+<tr>
+<td><code>walletOperationId</code></td>
+<td>string</td>
+<td>钱包入账操作 ID</td>
+</tr>
+<tr>
+<td><code>walletId</code></td>
+<td>string，条件返回</td>
+<td>钱包 ID</td>
+</tr>
+<tr>
+<td><code>occurredAt</code></td>
+<td>string(date-time)</td>
+<td>到账时间</td>
+</tr>
+</tbody>
+</table></div>
+<p>示例网络和币种 ID 仅说明类型，不构成支持列表。收到事件后核对目标钱包及账本，不把重复通知再次记为入账。</p>
+<h3 id="binding-code-webhook">13.7 绑卡验证码通知</h3>
+<p>事件：<code>merchant.webhook.wallet.card_binding.verification_code</code>，只用于适用并已开通的卡产品，不承诺所有新卡均会触发。</p>
+<pre tabindex="0"><code class="language-json">{&quot;memberUserId&quot;:456,&quot;inboundId&quot;:1002,&quot;walletId&quot;:54,&quot;cardAccountId&quot;:789,&quot;bindingCode&quot;:&quot;000000&quot;,&quot;expiresAt&quot;:&quot;2026-11-17T08:05:00Z&quot;,&quot;channelCode&quot;:&quot;&lt;服务标识&gt;&quot;}
+</code></pre>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>字段</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>memberUserId</code></td>
+<td>integer(int64)</td>
+<td>关联账户 ID</td>
+</tr>
+<tr>
+<td><code>inboundId</code></td>
+<td>integer(int64)</td>
+<td>本次通知关联记录 ID</td>
+</tr>
+<tr>
+<td><code>walletId</code></td>
+<td>integer(int64)，条件返回</td>
+<td>钱包 ID；注意本事件为数值，到账事件中为字符串</td>
+</tr>
+<tr>
+<td><code>cardAccountId</code></td>
+<td>integer(int64)，条件返回</td>
+<td>关联卡账户 ID</td>
+</tr>
+<tr>
+<td><code>bindingCode</code></td>
+<td>string</td>
+<td>绑卡验证码，示例为合成值</td>
+</tr>
+<tr>
+<td><code>expiresAt</code></td>
+<td>string(date-time)</td>
+<td>验证码到期时间</td>
+</tr>
+<tr>
+<td><code>channelCode</code></td>
+<td>string</td>
+<td>不透明服务标识</td>
+</tr>
+</tbody>
+</table></div>
+<p>保持实际字段名 <code>bindingCode</code>；不要改用其他名称解析。仅向有权限的业务对象展示，在到期前使用，不写入普通日志或长期存储。</p>
+<h2 id="errors">14. 错误码与排查</h2>
+<p>根据 HTTP 状态和字符串 <code>code</code> 一起处理。以下为发卡接口常用错误；<code>message</code> 可能携带本次请求的具体说明。</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="接口参数与字段"><table>
+<thead>
+<tr>
+<th>HTTP</th>
+<th>code</th>
+<th>含义与建议</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>400</td>
+<td><code>40001</code></td>
+<td>参数校验失败；检查类型、金额、时间、未知字段及必填项</td>
+</tr>
+<tr>
+<td>400</td>
+<td><code>40003</code></td>
+<td>缺少 Idempotency-Key；使用原业务动作的稳定 key</td>
+</tr>
+<tr>
+<td>400</td>
+<td><code>40012</code></td>
+<td>时间戳格式无效；API 请求使用 Unix 秒</td>
+</tr>
+<tr>
+<td>400</td>
+<td><code>40020</code></td>
+<td>开卡资格未满足；按接入要求完善资格</td>
+</tr>
+<tr>
+<td>400</td>
+<td><code>40021</code></td>
+<td>产品不可用；重新查询可用产品，不替代未知原单</td>
+</tr>
+<tr>
+<td>400</td>
+<td><code>40030</code></td>
+<td>钱包余额不足；核对目标主钱包可用余额与报价总额</td>
+</tr>
+<tr>
+<td>400</td>
+<td><code>40031</code></td>
+<td>费用规则与操作币种不一致；联系支持</td>
+</tr>
+<tr>
+<td>400</td>
+<td><code>40032</code> / <code>40033</code></td>
+<td>手续费规则未配置或无效；联系支持</td>
+</tr>
+<tr>
+<td>401</td>
+<td><code>40110</code></td>
+<td>凭证无效或已吊销；核对凭证状态和环境</td>
+</tr>
+<tr>
+<td>401</td>
+<td><code>40111</code></td>
+<td>签名不匹配；核对原始 body、query 编码排序、路径和 Secret</td>
+</tr>
+<tr>
+<td>401</td>
+<td><code>40112</code></td>
+<td>超出时间窗口；校时后重新签名</td>
+</tr>
+<tr>
+<td>401</td>
+<td><code>40113</code></td>
+<td>接口未开放或路径不允许；使用本文列明的方法与路径</td>
+</tr>
+<tr>
+<td>403</td>
+<td><code>40301</code></td>
+<td>归属或权限不符；核对商户、账户和资源 ID</td>
+</tr>
+<tr>
+<td>403</td>
+<td><code>40302</code></td>
+<td>风险规则拒绝；联系支持核对，不盲目换 key</td>
+</tr>
+<tr>
+<td>403</td>
+<td><code>40314</code></td>
+<td>凭证类型不符；使用已开通的 ISSUING 凭证</td>
+</tr>
+<tr>
+<td>404</td>
+<td><code>40401</code></td>
+<td>资源不存在或不在可见范围</td>
+</tr>
+<tr>
+<td>404</td>
+<td><code>40402</code></td>
+<td>卡片不存在或不可见</td>
+</tr>
+<tr>
+<td>404</td>
+<td><code>40403</code></td>
+<td>钱包或钱包资源不存在</td>
+</tr>
+<tr>
+<td>409</td>
+<td><code>40901</code></td>
+<td>资源冲突或同请求仍在处理中；查询原资源并退避</td>
+</tr>
+<tr>
+<td>409</td>
+<td><code>40904</code></td>
+<td>同幂等键请求不一致；检查原方法、路径、query 和 body 字节</td>
+</tr>
+<tr>
+<td>409</td>
+<td><code>40905</code></td>
+<td>卡状态不允许当前操作；先确认原操作与卡状态</td>
+</tr>
+<tr>
+<td>409</td>
+<td><code>40931</code></td>
+<td>本次报价未通过、未受理；重新报价确认后作为新请求提交</td>
+</tr>
+<tr>
+<td>429</td>
+<td><code>42902</code></td>
+<td>请求频繁；减少并发并退避</td>
+</tr>
+<tr>
+<td>500 / 503</td>
+<td><code>50001</code></td>
+<td>服务暂时异常；写请求先恢复原单，不换 key 重建</td>
+</tr>
+</tbody>
+</table></div>
+<p>签名失败时优先检查：GET 是否散列空字节；请求路径是否包含 <code>/open/v1</code>；query 是否编码后排序；body 是否在签名后被重新序列化；时间戳是否误用了毫秒；Secret 是否错误解码。</p>
+<p>历史数据为空时依次核对环境与凭证、默认或指定账户、卡归属、时间范围和历史覆盖。余额或手续费缺省时保留“未知”状态，不补成零。联系支持时提供商户编码、请求时间、<code>traceId</code>、资源或原操作 ID，不发送 Secret、完整卡号、安全码或验证码。</p>
+<h2 id="integration-checklist">15. 接入检查清单</h2>
+<ul>
+<li>服务端正确保存凭证，并通过只读查询验证签名。</li>
+<li>开卡前确认唯一关联账户、实际产品、本金、服务费和主钱包余额。</li>
+<li>业务请求先持久保存稳定 key 和原始字节，支持未知结果恢复。</li>
+<li>异步操作仅按 SUCCEEDED 进入后续流程，待核对状态可转人工支持。</li>
+<li>卡余额展示处理 null、stale 和观察时间，销卡与回款分别核对。</li>
+<li>历史导入按 ID 更新，处理窗口边界、重复、迟到和较早交易的状态变化。</li>
+<li>钱包账本按钱包区分，正确处理预占、零金额确认记录及实际释放。</li>
+<li>Webhook 使用独立 Secret、原始 body 验签、事件 ID 去重并允许乱序。</li>
+<li>敏感卡资料和验证码不进入日志、普通导入和持久缓存。</li>
+<li>正式使用前按已开通范围完成业务验收，保留定期查询和对账机制。</li>
+</ul></article><footer>接口数据均受商户权限与已开通服务范围限制。示例地址与示例值仅用于说明调用格式。</footer></main>
+</div>
 </body>
 </html>
