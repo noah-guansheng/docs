@@ -1,0 +1,3501 @@
+openapi: 3.1.0
+jsonSchemaDialect: https://spec.openapis.org/oas/3.1/dialect/base
+info:
+  title: 发卡 Open API
+  version: v1
+  summary: 商户发卡、充值、卡与钱包查询及通知接口。
+  description: '本规范描述发卡业务公开接口。示例域名、ID、金额、费用和标识仅用于说明，不能直接用于实际请求。实际网关地址和发卡凭证由接入开通资料提供；本规范不提供商户注册或主钱包直接入金/提现接口。
+
+
+    发卡请求使用ISSUING凭证；除health外同时提供X-Access-Key-Id、X-Merchant-Code、X-Vcc-Timestamp、X-Vcc-Signature。时间戳为Unix秒。标准接入不要发送X-Vcc-Nonce。
+
+
+    Canonical Request为四行，以LF换行连接且末尾不加换行：大写HTTP方法、仅路径、规范化query、原始body字节的SHA256小写hex。query的键和值先RFC3986编码，再按编码后的键和值排序，用&连接；空格为%20。无query时保留空行，GET无body时散列空字节而不是{}。
+
+
+    X-Vcc-Signature=hex_lower(HMAC_SHA256(UTF8(SecretKey),UTF8(Canonical Request)))。签名和发送使用同一份原始body。Secret只保存在商户服务端。默认允许时间偏差±10分钟、默认每商户每分钟100次请求，实际以开通配置为准；限流返回429/code42902，不承诺Retry-After或固定配额响应头。
+
+
+    写入前保存业务订单、稳定Idempotency-Key及原始请求。超时、断网或结果不明时，已知operationId则查询原操作，否则按原method/path/query和原始body字节重放，每次HTTP请求更新时间戳和签名。不得修改quoteId、JSON序列化或更换key盲目补单。同key异请求返回40904；处理中可能返回40901。仅HTTP409且code为40931表示本次报价无效、未受理且未预占；该响应可能缓存，重新报价并重新确认后作为新的请求提交。已受理原单继续保留原key，不能因报价过期或HTTP缓存有效期结束就复用业务key。
+
+
+    开卡或充值受理时一次预占主钱包本金与服务费，成功确认原预占，不重复扣款。卡内消费与退款不逐笔重复扣退主钱包本金，卡余额不足也不会自动补款。销卡成功不等于余额已退回主钱包，回款需另行确认。'
+servers:
+- url: https://api.example.com
+  description: 仅为保留示例域名，请替换为接入开通资料提供的实际HTTPS网关根地址。
+tags:
+- name: 接入
+  description: 连接与服务状态。
+- name: 产品
+  description: 可用单卡余额产品。
+- name: 开卡与充值
+  description: 报价、异步受理及原操作恢复。
+- name: 卡片
+  description: 脱敏资料、余额及卡状态管理。
+- name: 钱包
+  description: 主钱包、兼容卡组钱包及资金流水。
+- name: 交易
+  description: 卡交易历史与补查。
+- name: 兼容能力
+  description: 已有卡组与历史任务。
+- name: 费用
+  description: 兼容费用规则查询。
+- name: 通知
+  description: 商户HTTPS接收端的签名通知。
+security:
+- accessKeyId: []
+  merchantCode: []
+  requestTimestamp: []
+  requestSignature: []
+paths:
+  /open/v1/health:
+    get:
+      operationId: getIssuingHealth
+      summary: 健康检查
+      tags:
+      - 接入
+      description: 不要求签名。服务UP只表示接口连通，不能代替产品、资金或开卡结果确认。
+      responses:
+        '200':
+          description: 查询或业务响应成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                code: '0'
+                message: OK
+                data:
+                  status: UP
+                traceId: trace_example
+        '500':
+          $ref: '#/components/responses/ServiceError'
+      security: []
+  /open/v1/card-products:
+    get:
+      operationId: listCardProducts
+      summary: 查询可用发卡产品
+      tags:
+      - 产品
+      description: 返回当前可见、已发布的单卡余额产品数组。使用返回id开卡；能力、最低额和费用以当前结果及报价为准。来源标识不透明，不应硬编码供应来源。
+      responses:
+        '200':
+          description: 查询或业务响应成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductsResponse'
+              example:
+                code: '0'
+                message: OK
+                data:
+                - id: 123
+                  code: USD_SINGLE_CARD
+                  name: USD单卡余额产品
+                  currency: USD
+                  processor: opaque_product_source
+                  fundingMode: SINGLE_CARD_BALANCE
+                  initialAmountRequired: true
+                  supportsSpendingConstraints: false
+                  minimumInitialAmountMinor: 1000
+                  minimumRechargeAmountMinor: 0
+                  rechargeFeeMinor: 20
+                  published: true
+                  memberVisibility: ALL_MEMBERS
+                  merchantCode: M_EXAMPLE
+                traceId: trace_example
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/ServiceError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /open/v1/card-operations/quote:
+    get:
+      operationId: quoteCreateCard
+      summary: 获取开卡报价
+      tags:
+      - 开卡与充值
+      description: 新开卡须有唯一有效关联账户，不能由调用方传memberUserId选择。返回真实quoteId、到期时间、本金与费用；报价有效300秒。主钱包可用余额应覆盖totalMinor。
+      responses:
+        '200':
+          description: 查询或业务响应成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FundingQuoteResponse'
+              example:
+                code: '0'
+                message: OK
+                data:
+                  amountMinor: 1000
+                  feeMinor: 20
+                  totalMinor: 1020
+                  currency: USD
+                  minInitialAmountMinor: 1000
+                  quoteId: 11111111-2222-4333-8444-555555555555
+                  expiresAt: '2026-11-17T08:05:00Z'
+                traceId: trace_example
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/ServiceError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+      parameters:
+      - name: cardProductId
+        in: query
+        required: true
+        description: 当前可用产品ID。
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+        example: 123
+      - $ref: '#/components/parameters/AmountMinor'
+  /open/v1/card-operations:
+    post:
+      operationId: createCard
+      summary: 提交异步开卡
+      tags:
+      - 开卡与充值
+      description: HTTP200/code字符串0仅表示本次接口调用成功。操作status=SUCCEEDED才表示本次卡片与资金处理完成；PENDING/PROCESSING继续有界查询原operationId。recoveryRequired=true时保留原单并联系支持核对，不自动释放或发起替代单。errorCode可能是成功证据码，不能非空即判失败。
+        开卡或充值受理时一次预占主钱包本金与服务费，成功确认原预占，不重复扣款。卡内消费与退款不逐笔重复扣退主钱包本金，卡余额不足也不会自动补款。销卡成功不等于余额已退回主钱包，回款需另行确认。 写入前保存业务订单、稳定Idempotency-Key及原始请求。超时、断网或结果不明时，已知operationId则查询原操作，否则按原method/path/query和原始body字节重放，每次HTTP请求更新时间戳和签名。不得修改quoteId、JSON序列化或更换key盲目补单。同key异请求返回40904；处理中可能返回40901。仅HTTP409且code为40931表示本次报价无效、未受理且未预占；该响应可能缓存，重新报价并重新确认后作为新的请求提交。已受理原单继续保留原key，不能因报价过期或HTTP缓存有效期结束就复用业务key。
+        不接受memberUserId、渠道选择、账单地址或旧资金池字段。
+      responses:
+        '200':
+          description: 接口调用成功；异步业务结果以data.status为准。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardOperationResponse'
+              example:
+                code: '0'
+                message: OK
+                data:
+                  operationId: 123
+                  issuanceTaskId: 456
+                  cardId: null
+                  status: PENDING
+                  stage: READY
+                  operationType: CREATE
+                  amountMinor: 1000
+                  feeMinor: 20
+                  currency: USD
+                  errorCode: null
+                  terminal: false
+                  recoveryRequired: false
+                  createdAt: '2026-11-17T08:00:00Z'
+                  updatedAt: '2026-11-17T08:00:00Z'
+                traceId: trace_example
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: 写入前保存业务订单、稳定Idempotency-Key及原始请求。超时、断网或结果不明时，已知operationId则查询原操作，否则按原method/path/query和原始body字节重放，每次HTTP请求更新时间戳和签名。不得修改quoteId、JSON序列化或更换key盲目补单。同key异请求返回40904；处理中可能返回40901。仅HTTP409且code为40931表示本次报价无效、未受理且未预占；该响应可能缓存，重新报价并重新确认后作为新的请求提交。已受理原单继续保留原key，不能因报价过期或HTTP缓存有效期结束就复用业务key。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                quoteRejected:
+                  value:
+                    code: '40931'
+                    message: 请重新获取报价并确认
+                    traceId: trace_example
+                changedRequest:
+                  value:
+                    code: '40904'
+                    message: 幂等键与原请求不一致
+                    traceId: trace_example
+                processing:
+                  value:
+                    code: '40901'
+                    message: 原请求仍在处理中
+                    traceId: trace_example
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/ServiceError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCardRequest'
+            example:
+              cardProductId: 123
+              initialAmountMinor: 1000
+              displayName: 采购卡
+              quoteId: 11111111-2222-4333-8444-555555555555
+  /open/v1/card-operations/{operationId}:
+    get:
+      operationId: getCardOperation
+      summary: 查询原发卡操作
+      tags:
+      - 开卡与充值
+      description: HTTP200/code字符串0仅表示本次接口调用成功。操作status=SUCCEEDED才表示本次卡片与资金处理完成；PENDING/PROCESSING继续有界查询原operationId。recoveryRequired=true时保留原单并联系支持核对，不自动释放或发起替代单。errorCode可能是成功证据码，不能非空即判失败。
+        使用原operationId有限轮询或等待通知；成功开卡时使用该操作返回cardId。查询没有fundingState。
+      responses:
+        '200':
+          description: 接口调用成功；异步业务结果以data.status为准。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardOperationResponse'
+              example:
+                code: '0'
+                message: OK
+                data:
+                  operationId: 123
+                  issuanceTaskId: 456
+                  cardId: 789
+                  status: SUCCEEDED
+                  stage: SUCCEEDED
+                  operationType: CREATE
+                  amountMinor: 1000
+                  feeMinor: 20
+                  currency: USD
+                  errorCode: CARD_CREATED_AND_PAID
+                  terminal: true
+                  recoveryRequired: false
+                  createdAt: '2026-11-17T08:00:00Z'
+                  updatedAt: '2026-11-17T08:03:00Z'
+                traceId: trace_example
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/ServiceError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+      parameters:
+      - $ref: '#/components/parameters/OperationId'
+  /open/v1/cards:
+    get:
+      operationId: listCards
+      summary: 分页查询卡片
+      tags:
+      - 卡片
+      description: 按商户范围返回脱敏卡片，不接受memberUserId选择器。使用cardGroupId筛选时还需符合默认关联账户卡组归属。导入所有历史卡应省略cardGroupId，不用0代替全部。历史卡与当前产品能力可能不同，不能将所有卡套用单卡余额或敏感资料能力。
+      responses:
+        '200':
+          description: 查询或业务响应成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardPageResponse'
+              example:
+                code: '0'
+                message: OK
+                data:
+                  total: 1
+                  page: 0
+                  size: 100
+                  items:
+                  - id: '789'
+                    issuingEnvironment: null
+                    displayName: 采购卡
+                    panMasked: '**** **** **** 1234'
+                    panLast4: '1234'
+                    status: ACTIVE
+                    cardProductId: 123
+                    cardProductName: USD单卡余额产品
+                    platformCardGroupId: null
+                    channelDisplayName: opaque_display_label
+                    channelCode: opaque_card_source
+                    cardGroupName: null
+                    cardGroupCode: null
+                    cardGroupMemberOwned: false
+                    cardGroupLabel: 单卡余额
+                    fundingMode: SINGLE_CARD_BALANCE
+                    supportsSpendingConstraints: false
+                    balanceMinor: 1000
+                    balanceAsOf: '2026-11-17T08:00:00Z'
+                    balanceStale: false
+                    closeRefundStatus: null
+                    pendingAction: null
+                    merchantCode: M_EXAMPLE
+                  merchantCode: M_EXAMPLE
+                traceId: trace_example
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/ServiceError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/CardPageSize'
+      - name: cardGroupId
+        in: query
+        required: false
+        description: 兼容卡组过滤；省略表示不过滤卡组。
+        schema:
+          type: integer
+          format: int64
+  /open/v1/cards/{cardId}:
+    get:
+      operationId: getCard
+      summary: 查询脱敏卡片详情
+      tags:
+      - 卡片
+      description: 只返回当前商户可见卡片。默认不返回完整卡号或安全码；单卡余额附加字段仅对适用产品出现。
+      responses:
+        '200':
+          description: 查询或业务响应成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardResponse'
+              example:
+                code: '0'
+                message: OK
+                data:
+                  id: '789'
+                  issuingEnvironment: null
+                  displayName: 采购卡
+                  panMasked: '**** **** **** 1234'
+                  panLast4: '1234'
+                  status: ACTIVE
+                  cardProductId: 123
+                  cardProductName: USD单卡余额产品
+                  platformCardGroupId: null
+                  channelDisplayName: opaque_display_label
+                  channelCode: opaque_card_source
+                  cardGroupName: null
+                  cardGroupCode: null
+                  cardGroupMemberOwned: false
+                  cardGroupLabel: 单卡余额
+                  fundingMode: SINGLE_CARD_BALANCE
+                  supportsSpendingConstraints: false
+                  balanceMinor: 1000
+                  balanceAsOf: '2026-11-17T08:00:00Z'
+                  balanceStale: false
+                  closeRefundStatus: null
+                  pendingAction: null
+                  merchantCode: M_EXAMPLE
+                traceId: trace_example
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/ServiceError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+      parameters:
+      - $ref: '#/components/parameters/CardId'
+  /open/v1/cards/{cardId}/sensitive:
+    get:
+      operationId: getSensitiveCard
+      summary: 按需查询卡敏感资料
+      tags:
+      - 卡片
+      description: 仅归属正确且具备成功开卡绑定的适用卡可查询；存量卡可能不支持。不要存储响应body或写入一般日志/缓存。响应Cache-Control:no-store、Pragma:no-cache。
+      responses:
+        '200':
+          description: 查询或业务响应成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SensitiveCardResponse'
+              example:
+                code: '0'
+                message: OK
+                data:
+                  cardId: '789'
+                  channelCode: opaque_card_source
+                  pan: <完整卡号>
+                  cvv: <卡安全码>
+                  expMonth: 12
+                  expYear: 2030
+                  merchantCode: M_EXAMPLE
+                traceId: trace_example
+          headers:
+            Cache-Control:
+              description: 敏感资料禁止缓存。
+              schema:
+                type: string
+                const: no-store
+            Pragma:
+              description: 兼容禁止缓存标识。
+              schema:
+                type: string
+                const: no-cache
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/ServiceError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+      parameters:
+      - $ref: '#/components/parameters/CardId'
+      - $ref: '#/components/parameters/MemberUserId'
+  /open/v1/cards/{cardId}/balance:
+    get:
+      operationId: getCardBalance
+      summary: 查询单卡余额
+      tags:
+      - 卡片
+      description: 仅适用单卡余额产品。余额刷新失败时可能保留最近确认值并置stale=true；balanceMinor=null表示未知而不是0。展示时保留asOf与stale。
+      responses:
+        '200':
+          description: 查询或业务响应成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardBalanceResponse'
+              example:
+                code: '0'
+                message: OK
+                data:
+                  cardId: 789
+                  balanceMinor: 1000
+                  currency: USD
+                  asOf: '2026-11-17T08:00:00Z'
+                  stale: false
+                  errorCode: null
+                traceId: trace_example
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/ServiceError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+      parameters:
+      - $ref: '#/components/parameters/CardId'
+  /open/v1/cards/{cardId}/recharge-quote:
+    get:
+      operationId: quoteRechargeCard
+      summary: 获取卡充值报价
+      tags:
+      - 开卡与充值
+      description: 获取指定卡当前充值本金、服务费及总额。报价300秒有效；即使产品最低充值金额为0，本次本金仍必须大于0。
+      responses:
+        '200':
+          description: 查询或业务响应成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FundingQuoteResponse'
+              example:
+                code: '0'
+                message: OK
+                data:
+                  amountMinor: 1000
+                  feeMinor: 20
+                  totalMinor: 1020
+                  currency: USD
+                  minInitialAmountMinor: 1000
+                  quoteId: 11111111-2222-4333-8444-555555555555
+                  expiresAt: '2026-11-17T08:05:00Z'
+                traceId: trace_example
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/ServiceError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+      parameters:
+      - $ref: '#/components/parameters/CardId'
+      - $ref: '#/components/parameters/AmountMinor'
+  /open/v1/cards/{cardId}/recharge:
+    post:
+      operationId: rechargeCard
+      summary: 提交异步充值
+      tags:
+      - 开卡与充值
+      description: HTTP200/code字符串0仅表示本次接口调用成功。操作status=SUCCEEDED才表示本次卡片与资金处理完成；PENDING/PROCESSING继续有界查询原operationId。recoveryRequired=true时保留原单并联系支持核对，不自动释放或发起替代单。errorCode可能是成功证据码，不能非空即判失败。
+        写入前保存业务订单、稳定Idempotency-Key及原始请求。超时、断网或结果不明时，已知operationId则查询原操作，否则按原method/path/query和原始body字节重放，每次HTTP请求更新时间戳和签名。不得修改quoteId、JSON序列化或更换key盲目补单。同key异请求返回40904；处理中可能返回40901。仅HTTP409且code为40931表示本次报价无效、未受理且未预占；该响应可能缓存，重新报价并重新确认后作为新的请求提交。已受理原单继续保留原key，不能因报价过期或HTTP缓存有效期结束就复用业务key。
+        同一卡充值与状态动作互斥；完成后核对卡余额、主钱包及账本。
+      responses:
+        '200':
+          description: 接口调用成功；异步业务结果以data.status为准。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardOperationResponse'
+              example:
+                code: '0'
+                message: OK
+                data:
+                  operationId: 124
+                  issuanceTaskId: null
+                  cardId: 789
+                  status: PENDING
+                  stage: READY
+                  operationType: RECHARGE
+                  amountMinor: 1000
+                  feeMinor: 20
+                  currency: USD
+                  errorCode: null
+                  terminal: false
+                  recoveryRequired: false
+                  createdAt: '2026-11-17T08:00:00Z'
+                  updatedAt: '2026-11-17T08:00:00Z'
+                traceId: trace_example
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: 写入前保存业务订单、稳定Idempotency-Key及原始请求。超时、断网或结果不明时，已知operationId则查询原操作，否则按原method/path/query和原始body字节重放，每次HTTP请求更新时间戳和签名。不得修改quoteId、JSON序列化或更换key盲目补单。同key异请求返回40904；处理中可能返回40901。仅HTTP409且code为40931表示本次报价无效、未受理且未预占；该响应可能缓存，重新报价并重新确认后作为新的请求提交。已受理原单继续保留原key，不能因报价过期或HTTP缓存有效期结束就复用业务key。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                quoteRejected:
+                  value:
+                    code: '40931'
+                    message: 请重新获取报价并确认
+                    traceId: trace_example
+                changedRequest:
+                  value:
+                    code: '40904'
+                    message: 幂等键与原请求不一致
+                    traceId: trace_example
+                processing:
+                  value:
+                    code: '40901'
+                    message: 原请求仍在处理中
+                    traceId: trace_example
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/ServiceError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+      parameters:
+      - $ref: '#/components/parameters/CardId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RechargeRequest'
+            example:
+              amountMinor: 1000
+              quoteId: 11111111-2222-4333-8444-555555555555
+  /open/v1/cards/{cardId}/operations:
+    post:
+      operationId: changeCardState
+      summary: 提交冻结、解冻或销卡
+      tags:
+      - 卡片
+      description: HTTP200/code字符串0仅表示本次接口调用成功。操作status=SUCCEEDED才表示本次卡片与资金处理完成；PENDING/PROCESSING继续有界查询原operationId。recoveryRequired=true时保留原单并联系支持核对，不自动释放或发起替代单。errorCode可能是成功证据码，不能非空即判失败。
+        写入前保存业务订单、稳定Idempotency-Key及原始请求。超时、断网或结果不明时，已知operationId则查询原操作，否则按原method/path/query和原始body字节重放，每次HTTP请求更新时间戳和签名。不得修改quoteId、JSON序列化或更换key盲目补单。同key异请求返回40904；处理中可能返回40901。仅HTTP409且code为40931表示本次报价无效、未受理且未预占；该响应可能缓存，重新报价并重新确认后作为新的请求提交。已受理原单继续保留原key，不能因报价过期或HTTP缓存有效期结束就复用业务key。
+        仅支持FREEZE/UNFREEZE/CLOSE，同一卡前一操作完成后再提交下一动作。销卡状态与余额返还分开确认。
+      responses:
+        '200':
+          description: 接口调用成功；异步业务结果以data.status为准。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardOperationResponse'
+              example:
+                code: '0'
+                message: OK
+                data:
+                  operationId: 125
+                  issuanceTaskId: null
+                  cardId: 789
+                  status: PENDING
+                  stage: READY
+                  operationType: FREEZE
+                  amountMinor: 0
+                  feeMinor: 0
+                  currency: USD
+                  errorCode: null
+                  terminal: false
+                  recoveryRequired: false
+                  createdAt: '2026-11-17T08:00:00Z'
+                  updatedAt: '2026-11-17T08:00:00Z'
+                traceId: trace_example
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/ServiceError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+      parameters:
+      - $ref: '#/components/parameters/CardId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CardActionRequest'
+            example:
+              operationType: FREEZE
+  /open/v1/wallets:
+    get:
+      operationId: listWallets
+      summary: 查询钱包列表
+      tags:
+      - 钱包
+      description: 省略memberUserId时返回当前商户范围的钱包，可覆盖多个关联账户；指定时只返回该归属账户的钱包。区分MAIN主钱包和CARD_GROUP兼容卡组钱包。开卡使用唯一有效关联账户的USD主钱包，不能随便取数组第一项。本接口仅查询，未提供主钱包入金或提现写接口。
+      responses:
+        '200':
+          description: 查询或业务响应成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletsResponse'
+              example:
+                code: '0'
+                message: OK
+                data:
+                - walletId: '54'
+                  currency: USD
+                  availableAmountMinor: 100000
+                  availableAmount: '1000.00'
+                  cardGroupId: 0
+                  walletRole: MAIN
+                  cardGroupName: null
+                  merchantCode: M_EXAMPLE
+                traceId: trace_example
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/ServiceError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+      parameters:
+      - $ref: '#/components/parameters/WalletListMemberUserId'
+  /open/v1/wallets/{walletId}:
+    get:
+      operationId: getWallet
+      summary: 查询单个钱包
+      tags:
+      - 钱包
+      description: 只能查询当前商户可见的钱包；返回当前可用余额，不提供总资产或冻结余额字段。
+      responses:
+        '200':
+          description: 查询或业务响应成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletResponse'
+              example:
+                code: '0'
+                message: OK
+                data:
+                  walletId: '54'
+                  currency: USD
+                  availableAmountMinor: 100000
+                  availableAmount: '1000.00'
+                  cardGroupId: 0
+                  walletRole: MAIN
+                  cardGroupName: null
+                  merchantCode: M_EXAMPLE
+                traceId: trace_example
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/ServiceError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+      parameters:
+      - $ref: '#/components/parameters/WalletId'
+  /open/v1/wallet-ledger:
+    get:
+      operationId: listWalletLedger
+      summary: 分页查询钱包流水
+      tags:
+      - 钱包
+      description: 查询所选关联账户的USD主钱包与全部兼容卡组钱包合并流水，非商户全账户汇总。按walletAccountId或cardGroupId在本地区分钱包；balanceAfterMinor仅属于该行钱包。不提供walletId/cardId/from/to/cursor过滤。固定size=100分页；data.size是本页实际条数，不能用作下页请求size。初次导入可sort=asc，增量以desc重叠扫描并定期补扫。迟到记录可能落在较早页；此分页不是强一致快照。卡内消费和退款查transactions及卡余额，不从主钱包流水推导。
+      responses:
+        '200':
+          description: 查询或业务响应成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletLedgerPageResponse'
+              example:
+                code: '0'
+                message: OK
+                data:
+                  total: 1
+                  page: 0
+                  size: 1
+                  sort: asc
+                  items:
+                  - id: '901'
+                    occurredAt: '2026-11-17T08:00:00Z'
+                    amountMinor: -1020
+                    amount: '10.20'
+                    direction: DEBIT
+                    balanceAfterMinor: 98980
+                    balanceAfter: '989.80'
+                    entryType: ISSUING_RESERVE
+                    referenceType: ISSUING_OPERATION
+                    referenceId: '123'
+                    businessRef: issuing:123
+                    walletAccountId: '54'
+                    cardGroupId: '0'
+                  merchantCode: M_EXAMPLE
+                traceId: trace_example
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/ServiceError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+      parameters:
+      - $ref: '#/components/parameters/MemberUserId'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/HistoryPageSize'
+      - name: sort
+        in: query
+        required: false
+        description: 业务时间排序方向。
+        schema:
+          type: string
+          enum:
+          - asc
+          - desc
+          default: desc
+        example: asc
+  /open/v1/transactions:
+    get:
+      operationId: listTransactions
+      summary: 分页查询卡交易历史
+      tags:
+      - 交易
+      description: 只查询当前商户、所选关联账户归属的已可见记录，cardId不会绕过归属限制。省略账户参数不是全部账户汇总。按occurredAt倒序、同时间再按ID倒序。from/to均包含边界；不提供updatedSince、channelCode、status或cursor参数。接口不自动补齐全部远端历史，空记录不代表不存在历史交易。初次按固定时间窗口分页，以id去重更新；通知与定期重叠扫描并用，并定期补查较早窗口以覆盖迟到和旧交易更新。REST可返回已可见授权，但通知不包含实时授权。费用不可用或缺失不等于无费用。
+      responses:
+        '200':
+          description: 查询或业务响应成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionPageResponse'
+              example:
+                code: '0'
+                message: OK
+                data:
+                  total: 1
+                  page: 0
+                  pageSize: 100
+                  itemCount: 1
+                  items:
+                  - id: '601'
+                    memberUserId: '456'
+                    cardAccountId: '789'
+                    txnType: PURCHASE
+                    status: POSTED
+                    amountMinor: -500
+                    amount: '5.00'
+                    currency: USD
+                    occurredAt: '2026-11-17T08:00:00Z'
+                    merchantReference: null
+                    channelReference: example_txn_ref
+                    narrative: 采购消费
+                    merchantDescription: 示例商户
+                    channelCode: opaque_card_source
+                    channelStatus: null
+                    channelDetailedStatus: null
+                    feeSnapshotAvailable: false
+                    feeEstimateAvailable: false
+                    feeTotalMinorSnapshot: null
+                    feeRuleSourceSnapshot: null
+                    feeRuleIdSnapshot: null
+                    feeRuleTableSnapshot: null
+                    feeSummarySnapshot: null
+                    merchantCode: M_EXAMPLE
+                  merchantCode: M_EXAMPLE
+                traceId: trace_example
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/ServiceError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+      parameters:
+      - $ref: '#/components/parameters/MemberUserId'
+      - name: cardId
+        in: query
+        required: false
+        description: 平台卡账户ID过滤。
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+        example: 789
+      - name: txnType
+        in: query
+        required: false
+        description: 可扩展的交易类型过滤。
+        schema:
+          type: string
+        example: PURCHASE
+      - name: from
+        in: query
+        required: false
+        description: 业务发生时间下界，包含边界；带偏移ISO8601，建议UTC Z。
+        schema:
+          type: string
+          format: date-time
+        example: '2026-11-01T00:00:00Z'
+      - name: to
+        in: query
+        required: false
+        description: 业务发生时间上界，包含边界。
+        schema:
+          type: string
+          format: date-time
+        example: '2026-11-17T08:00:00Z'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/HistoryPageSize'
+  /open/v1/card-groups:
+    get:
+      operationId: listHistoricalCardGroups
+      summary: 查询已有兼容卡组
+      tags:
+      - 兼容能力
+      description: 返回所选账户名下有效自建卡组，省略memberUserId使用默认关联账户；不含余额，余额从wallets的CARD_GROUP项查询。这不是新单卡余额产品的开卡前置步骤。
+      responses:
+        '200':
+          description: 查询或业务响应成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardGroupsResponse'
+              example:
+                code: '0'
+                message: OK
+                data:
+                - id: 9
+                  code: GROUP_EXAMPLE
+                  name: 历史卡组
+                  memberOwned: true
+                  status: ACTIVE
+                  merchantCode: M_EXAMPLE
+                traceId: trace_example
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/ServiceError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+      parameters:
+      - $ref: '#/components/parameters/MemberUserId'
+  /open/v1/card-groups/{cardGroupId}/release:
+    post:
+      operationId: releaseHistoricalCardGroupFunds
+      summary: 卡组余额转回主钱包
+      tags:
+      - 兼容能力
+      description: 已有卡组钱包按金额转回主钱包，仅支持USD并执行归属、可用余额和风险校验，不保证所有余额均可划出。本动作不是单卡充值，也不能证明销卡回款。返回钱包操作ID，不用card-operations查询该ID。超时或结果不明时保留原key及原始请求重放，不换键重复划款。
+      responses:
+        '200':
+          description: 查询或业务响应成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletOperationResponse'
+              example:
+                code: '0'
+                message: OK
+                data:
+                  id: '701'
+                  reference: wo_701
+                  status: SUCCEEDED
+                  type: CARD_GROUP_RELEASE
+                  currency: USD
+                  amountMinor: 5000
+                  amount: '50.00'
+                  merchantCode: M_EXAMPLE
+                traceId: trace_example
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/ServiceError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+      parameters:
+      - $ref: '#/components/parameters/CardGroupId'
+      - $ref: '#/components/parameters/MemberUserId'
+      - $ref: '#/components/parameters/WalletIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CardGroupReleaseRequest'
+            example:
+              currency: USD
+              amount: '50.00'
+  /open/v1/card-issuance-tasks/{taskId}:
+    get:
+      operationId: getHistoricalIssuanceTask
+      summary: 查询历史发卡任务
+      tags:
+      - 兼容能力
+      description: 兼容既有任务，仅返回id/status/channelRequestId/merchantCode。新单卡开卡请查询原card-operations操作，并使用该操作返回的cardId。
+      responses:
+        '200':
+          description: 查询或业务响应成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoricalIssuanceTaskResponse'
+              example:
+                code: '0'
+                message: OK
+                data:
+                  id: '456'
+                  status: SUCCEEDED
+                  channelRequestId: null
+                  merchantCode: M_EXAMPLE
+                traceId: trace_example
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/ServiceError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+      parameters:
+      - $ref: '#/components/parameters/TaskId'
+  /open/v1/merchant-fee-rules/effective:
+    get:
+      operationId: getEffectiveFeeRule
+      summary: 查询兼容费用规则及试算
+      tags:
+      - 费用
+      description: 按当前商户查询生效规则并以可选基数试算。返回金额字段为整数字符串，不是number。foreignTransaction为响应中实际试算标志，不是本接口查询参数。开卡/充值费用以当前quote和原操作feeMinor为准，本接口不能代替单卡余额产品报价，也不能推断卡内消费的实际收费。
+      responses:
+        '200':
+          description: 查询或业务响应成功。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EffectiveFeeRuleResponse'
+              example:
+                code: '0'
+                message: OK
+                data:
+                  feeType: TRANSACTION
+                  source: MERCHANT
+                  ruleId: '501'
+                  ruleTable: opaque_rule_reference
+                  calculationMode: FIXED
+                  currency: USD
+                  fixedFeeMinor: '20'
+                  minFeeMinor: '0'
+                  ratePercent: '0.00'
+                  tierRef: null
+                  appliesTo: null
+                  baseAmountMinor: '1000'
+                  foreignTransaction: true
+                  quotedFeeMinor: '20'
+                  summary: 示例固定费用；实际以当前返回为准。
+                  merchantCode: M_EXAMPLE
+                traceId: trace_example
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/ServiceError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+      parameters:
+      - name: feeType
+        in: query
+        required: true
+        description: 费用类型。
+        schema:
+          type: string
+          description: 费用类型。
+          enum:
+          - CARD_ISSUANCE
+          - TRANSACTION
+          - REFUND
+          - MANUAL_TOP_UP
+          - WITHDRAWAL
+        example: TRANSACTION
+      - name: baseAmountMinor
+        in: query
+        required: false
+        description: 计费基数，最小货币单位整数；省略时使用0。
+        schema:
+          type: integer
+          format: int64
+          default: 0
+        example: 1000
+webhooks:
+  merchant.webhook.issuing.operation.updated:
+    post:
+      operationId: receiveIssuingOperationEvent
+      summary: 开卡、充值及卡操作更新
+      tags:
+      - 通知
+      description: '此POST发送至商户已登记的HTTPS接收地址，不是API网关下的业务路径。无需商户调用API使用的AK头；接收方验证独立Webhook Secret生成的签名。签名=hex_lower(HMAC_SHA256(UTF8(WebhookSecret),UTF8(timestamp+nonce)+原始body字节))，timestamp和nonce按通知头的字符串原样拼接，无分隔符；timestamp为Unix毫秒。先验签、校验时间窗口及头/body事件ID，再解析/处理。按eventId去重，可靠持久化或入队后返回任意2xx。通知可能重复、重试和乱序；旧事件不能覆盖新状态。不要承诺固定重试周期。 '
+      security: []
+      parameters:
+      - $ref: '#/components/parameters/CallbackTimestamp'
+      - $ref: '#/components/parameters/CallbackNonce'
+      - $ref: '#/components/parameters/CallbackSignature'
+      - $ref: '#/components/parameters/CallbackEventId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IssuingOperationEvent'
+            example:
+              eventType: merchant.webhook.issuing.operation.updated
+              eventId: evt_issuing_example
+              occurredAt: '2026-11-17T08:00:00Z'
+              merchantCode: null
+              data:
+                operationId: 123
+                issuanceTaskId: 456
+                cardId: 789
+                status: SUCCEEDED
+                stage: SUCCEEDED
+                operationType: CREATE
+                amountMinor: 1000
+                feeMinor: 20
+                currency: USD
+                errorCode: CARD_CREATED_AND_PAID
+                terminal: true
+                recoveryRequired: false
+                createdAt: '2026-11-17T08:00:00Z'
+                updatedAt: '2026-11-17T08:03:00Z'
+                fundingState: COMMITTED
+      responses:
+        '200':
+          description: 商户已验证并可靠接收；任何2xx均视为确认。
+        '400':
+          description: 商户拒绝无效通知；不要在未验签时执行业务。
+        '500':
+          description: 商户未能可靠接收，返回非2xx；后续可能重试。
+  merchant.webhook.transaction.updated:
+    post:
+      operationId: receiveTransactionEvent
+      summary: 交易后续状态更新
+      tags:
+      - 通知
+      description: '此POST发送至商户已登记的HTTPS接收地址，不是API网关下的业务路径。无需商户调用API使用的AK头；接收方验证独立Webhook Secret生成的签名。签名=hex_lower(HMAC_SHA256(UTF8(WebhookSecret),UTF8(timestamp+nonce)+原始body字节))，timestamp和nonce按通知头的字符串原样拼接，无分隔符；timestamp为Unix毫秒。先验签、校验时间窗口及头/body事件ID，再解析/处理。按eventId去重，可靠持久化或入队后返回任意2xx。通知可能重复、重试和乱序；旧事件不能覆盖新状态。不要承诺固定重试周期。 '
+      security: []
+      parameters:
+      - $ref: '#/components/parameters/CallbackTimestamp'
+      - $ref: '#/components/parameters/CallbackNonce'
+      - $ref: '#/components/parameters/CallbackSignature'
+      - $ref: '#/components/parameters/CallbackEventId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionEvent'
+            example:
+              eventType: merchant.webhook.transaction.updated
+              eventId: evt_transaction_example
+              occurredAt: '2026-11-17T08:00:00Z'
+              merchantCode: M_EXAMPLE
+              data:
+                transactionId: txn_example_txn_ref
+                cardAccountId: 789
+                txnType: PURCHASE
+                status: POSTED
+                amountMinor: -500
+                currency: USD
+                occurredAt: '2026-11-17T08:00:00Z'
+                merchantReference: null
+                channelReference: example_txn_ref
+      responses:
+        '200':
+          description: 商户已验证并可靠接收；任何2xx均视为确认。
+        '400':
+          description: 商户拒绝无效通知；不要在未验签时执行业务。
+        '500':
+          description: 商户未能可靠接收，返回非2xx；后续可能重试。
+  merchant.webhook.wallet.deposit.posted:
+    post:
+      operationId: receiveWalletDepositEvent
+      summary: 数币自动充值到账
+      tags:
+      - 通知
+      description: '此POST发送至商户已登记的HTTPS接收地址，不是API网关下的业务路径。无需商户调用API使用的AK头；接收方验证独立Webhook Secret生成的签名。签名=hex_lower(HMAC_SHA256(UTF8(WebhookSecret),UTF8(timestamp+nonce)+原始body字节))，timestamp和nonce按通知头的字符串原样拼接，无分隔符；timestamp为Unix毫秒。先验签、校验时间窗口及头/body事件ID，再解析/处理。按eventId去重，可靠持久化或入队后返回任意2xx。通知可能重复、重试和乱序；旧事件不能覆盖新状态。不要承诺固定重试周期。 '
+      security: []
+      parameters:
+      - $ref: '#/components/parameters/CallbackTimestamp'
+      - $ref: '#/components/parameters/CallbackNonce'
+      - $ref: '#/components/parameters/CallbackSignature'
+      - $ref: '#/components/parameters/CallbackEventId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WalletDepositEvent'
+            example:
+              eventType: merchant.webhook.wallet.deposit.posted
+              eventId: evt_deposit_example
+              occurredAt: '2026-11-17T08:00:00Z'
+              merchantCode: M_EXAMPLE
+              data:
+                depositId: 801
+                txHash: example_transfer_hash
+                chainId: 1
+                chainName: 示例网络
+                chainSymbol: EXAMPLE
+                fromAddress: example_sender_address
+                toAddress: example_receiver_address
+                amountMinor: 10000
+                amount: '100.00'
+                currency: USD
+                amountRaw: '100'
+                payCurrencyId: 1
+                payRechargeId: 802
+                channelCode: opaque_deposit_source
+                walletOperationId: '803'
+                walletId: '54'
+                occurredAt: '2026-11-17T08:00:00Z'
+      responses:
+        '200':
+          description: 商户已验证并可靠接收；任何2xx均视为确认。
+        '400':
+          description: 商户拒绝无效通知；不要在未验签时执行业务。
+        '500':
+          description: 商户未能可靠接收，返回非2xx；后续可能重试。
+  merchant.webhook.wallet.card_binding.verification_code:
+    post:
+      operationId: receiveCardBindingEvent
+      summary: 适用卡产品绑卡验证码
+      tags:
+      - 通知
+      description: '此POST发送至商户已登记的HTTPS接收地址，不是API网关下的业务路径。无需商户调用API使用的AK头；接收方验证独立Webhook Secret生成的签名。签名=hex_lower(HMAC_SHA256(UTF8(WebhookSecret),UTF8(timestamp+nonce)+原始body字节))，timestamp和nonce按通知头的字符串原样拼接，无分隔符；timestamp为Unix毫秒。先验签、校验时间窗口及头/body事件ID，再解析/处理。按eventId去重，可靠持久化或入队后返回任意2xx。通知可能重复、重试和乱序；旧事件不能覆盖新状态。不要承诺固定重试周期。 '
+      security: []
+      parameters:
+      - $ref: '#/components/parameters/CallbackTimestamp'
+      - $ref: '#/components/parameters/CallbackNonce'
+      - $ref: '#/components/parameters/CallbackSignature'
+      - $ref: '#/components/parameters/CallbackEventId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CardBindingEvent'
+            example:
+              eventType: merchant.webhook.wallet.card_binding.verification_code
+              eventId: evt_binding_example
+              occurredAt: '2026-11-17T08:00:00Z'
+              merchantCode: M_EXAMPLE
+              data:
+                memberUserId: 456
+                inboundId: 804
+                walletId: 54
+                cardAccountId: 789
+                bindingCode: <验证码>
+                expiresAt: '2026-11-17T08:05:00Z'
+                channelCode: opaque_card_source
+      responses:
+        '200':
+          description: 商户已验证并可靠接收；任何2xx均视为确认。
+        '400':
+          description: 商户拒绝无效通知；不要在未验签时执行业务。
+        '500':
+          description: 商户未能可靠接收，返回非2xx；后续可能重试。
+components:
+  securitySchemes:
+    accessKeyId:
+      type: apiKey
+      in: header
+      name: X-Access-Key-Id
+      description: 已开通的发卡ISSUING AccessKeyId。
+    merchantCode:
+      type: apiKey
+      in: header
+      name: X-Merchant-Code
+      description: 与该凭证绑定的商户编码。
+    requestTimestamp:
+      type: apiKey
+      in: header
+      name: X-Vcc-Timestamp
+      description: Unix秒时间戳字符串。
+    requestSignature:
+      type: apiKey
+      in: header
+      name: X-Vcc-Signature
+      description: '发卡请求使用ISSUING凭证；除health外同时提供X-Access-Key-Id、X-Merchant-Code、X-Vcc-Timestamp、X-Vcc-Signature。时间戳为Unix秒。标准接入不要发送X-Vcc-Nonce。
+
+
+        Canonical Request为四行，以LF换行连接且末尾不加换行：大写HTTP方法、仅路径、规范化query、原始body字节的SHA256小写hex。query的键和值先RFC3986编码，再按编码后的键和值排序，用&连接；空格为%20。无query时保留空行，GET无body时散列空字节而不是{}。
+
+
+        X-Vcc-Signature=hex_lower(HMAC_SHA256(UTF8(SecretKey),UTF8(Canonical Request)))。签名和发送使用同一份原始body。Secret只保存在商户服务端。默认允许时间偏差±10分钟、默认每商户每分钟100次请求，实际以开通配置为准；限流返回429/code42902，不承诺Retry-After或固定配额响应头。'
+  parameters:
+    MemberUserId:
+      name: memberUserId
+      in: query
+      required: false
+      description: 可选的关联账户ID。提供时须属于当前商户；省略时使用默认关联账户，不是商户所有账户汇总。
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+      example: 456
+    Page:
+      name: page
+      in: query
+      required: false
+      description: 从0开始的页码。
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+      example: 0
+    CardPageSize:
+      name: size
+      in: query
+      required: false
+      description: 卡列表请求页长，默认20，最大100；建议固定100。
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+      example: 100
+    HistoryPageSize:
+      name: size
+      in: query
+      required: false
+      description: 历史查询请求页长，默认20，最大200；建议固定100。不要传超过上限的值。
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 20
+      example: 100
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: 每个独立业务动作使用稳定且不复用的键；新发卡操作须非空、最多128字符、无控制字符，不能以batch:开头。原单恢复必须保留原键和原始请求字节。
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+        pattern: ^(?!batch:)(?!\s*$)[^\u0000-\u001f\u007f-\u009f]+$
+      example: create-business-order-001
+    CardId:
+      name: cardId
+      in: path
+      required: true
+      description: 优先使用卡列表id或成功开卡操作返回的cardId；不使用完整卡号。
+      schema:
+        type: string
+        minLength: 1
+      example: '789'
+    OperationId:
+      name: operationId
+      in: path
+      required: true
+      description: 原发卡操作ID。
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+      example: 123
+    WalletId:
+      name: walletId
+      in: path
+      required: true
+      description: 钱包列表返回的walletId。
+      schema:
+        type: string
+        pattern: ^[0-9]+$
+      example: '54'
+    CardGroupId:
+      name: cardGroupId
+      in: path
+      required: true
+      description: 当前账户名下有效兼容卡组ID。
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+      example: 9
+    TaskId:
+      name: taskId
+      in: path
+      required: true
+      description: 原历史发卡任务ID。
+      schema:
+        type: string
+        pattern: ^[0-9]+$
+      example: '456'
+    AmountMinor:
+      name: amountMinor
+      in: query
+      required: true
+      description: 本次本金，USD分的正整数。
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+        maximum: 9223372036854775807
+      example: 1000
+    CallbackTimestamp:
+      name: X-Vcc-Timestamp
+      in: header
+      required: true
+      description: 通知Unix毫秒时间戳字符串，原样参与验签；与API秒时间戳不同。
+      schema:
+        type: string
+        pattern: ^[0-9]+$
+    CallbackNonce:
+      name: X-Vcc-Nonce
+      in: header
+      required: true
+      description: 通知随机数，小写32位hex。
+      schema:
+        type: string
+        pattern: ^[0-9a-f]{32}$
+    CallbackSignature:
+      name: X-Vcc-Signature
+      in: header
+      required: true
+      description: 独立Webhook Secret计算的小写hex HMAC-SHA256。
+      schema:
+        type: string
+        pattern: ^[0-9a-f]{64}$
+    CallbackEventId:
+      name: X-Vcc-Event-Id
+      in: header
+      required: true
+      description: 事件ID，须等于JSON中的eventId。
+      schema:
+        type: string
+        minLength: 1
+    WalletIdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: 兼容钱包动作的稳定业务幂等键，不能为空；每个独立动作使用不同键，结果不明时按原键和原始请求恢复。
+      schema:
+        type: string
+        minLength: 1
+        pattern: ^(?!\s*$).+$
+      example: release-business-order-001
+    WalletListMemberUserId:
+      name: memberUserId
+      in: query
+      required: false
+      description: 可选关联账户ID。提供时须属于当前商户；省略时返回当前商户可见的钱包，可覆盖多个关联账户。
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+      example: 456
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          description: 业务错误码字符串。
+          pattern: ^[0-9]+$
+        message:
+          type: string
+          description: 错误说明；不要仅凭文案进行程序判断。
+        data:
+          type: 'null'
+          description: 错误响应通常省略此字段。
+        traceId:
+          type:
+          - string
+          - 'null'
+          description: 请求追踪标识，可能省略、为空字符串或null。
+      required:
+      - code
+      - message
+      description: 非成功响应。根据HTTP状态、业务码及原业务结果共同处理。
+    Health:
+      type: object
+      properties:
+        status:
+          type: string
+          description: 服务健康状态。
+          enum:
+          - UP
+      required:
+      - status
+    Product:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: 产品ID；开卡时作为cardProductId。
+          minimum: 1
+        code:
+          type: string
+          description: 产品代码。
+        name:
+          type:
+          - string
+          - 'null'
+          description: 产品名称。
+        currency:
+          type: string
+          description: 本金币种。
+          enum:
+          - USD
+        processor:
+          type: string
+          description: 不透明服务标识；用于原样保存和关联，不据此判断产品能力，不解析其组成。
+        fundingMode:
+          type: string
+          description: 资金模式。
+          enum:
+          - SINGLE_CARD_BALANCE
+        initialAmountRequired:
+          type: boolean
+          description: 是否需要初始入卡本金。
+          const: true
+        supportsSpendingConstraints:
+          type: boolean
+          description: 该产品是否支持消费约束。
+          const: false
+        minimumInitialAmountMinor:
+          type: integer
+          format: int64
+          description: 最低初始入卡本金，USD分。
+          minimum: 0
+          maximum: 9223372036854775807
+        minimumRechargeAmountMinor:
+          type: integer
+          format: int64
+          description: 最低充值本金，USD分；值为0也不允许提交零金额。
+          minimum: 0
+          maximum: 9223372036854775807
+        rechargeFeeMinor:
+          type: integer
+          format: int64
+          description: 产品充值服务费参考值，最终以当前充值报价为准。
+          minimum: 0
+          maximum: 9223372036854775807
+        published:
+          type: boolean
+          description: 产品已发布。
+          const: true
+        memberVisibility:
+          type: string
+          description: 关联账户适用范围标识。
+          enum:
+          - ALL_MEMBERS
+        merchantCode:
+          type: string
+          description: 当前商户编码。
+      required:
+      - id
+      - code
+      - currency
+      - processor
+      - fundingMode
+      - initialAmountRequired
+      - supportsSpendingConstraints
+      - minimumInitialAmountMinor
+      - minimumRechargeAmountMinor
+      - rechargeFeeMinor
+      - published
+      - memberVisibility
+      - merchantCode
+    FundingQuote:
+      type: object
+      properties:
+        amountMinor:
+          type: integer
+          format: int64
+          description: 本次本金，USD分。
+          maximum: 9223372036854775807
+          minimum: 1
+        feeMinor:
+          type: integer
+          format: int64
+          description: 本次服务费，USD分。
+          minimum: 0
+          maximum: 9223372036854775807
+        totalMinor:
+          type: integer
+          format: int64
+          description: 需要确认的主钱包预占合计：本金+服务费。
+          minimum: 0
+          maximum: 9223372036854775807
+        currency:
+          type: string
+          description: 币种。
+          enum:
+          - USD
+        minInitialAmountMinor:
+          type: integer
+          format: int64
+          description: 开卡最低本金提示；充值报价保留相同兼容字段，充值最低额以产品能力为准。
+          minimum: 0
+          maximum: 9223372036854775807
+        quoteId:
+          type: string
+          description: 真实报价ID；提交对应开卡或充值时原样携带。
+          minLength: 1
+          maxLength: 36
+        expiresAt:
+          type: string
+          description: 报价到期时间；有效期300秒。
+          format: date-time
+      required:
+      - amountMinor
+      - feeMinor
+      - totalMinor
+      - currency
+      - minInitialAmountMinor
+      - quoteId
+      - expiresAt
+    CreateCardRequest:
+      type: object
+      properties:
+        cardProductId:
+          type: integer
+          format: int64
+          description: 从当前可用产品列表取得的产品ID。
+          minimum: 1
+          maximum: 9223372036854775807
+        initialAmountMinor:
+          type: integer
+          format: int64
+          description: 初始入卡本金，USD分的正整数；还须满足当前产品最低额。
+          maximum: 9223372036854775807
+          minimum: 1
+        displayName:
+          type:
+          - string
+          - 'null'
+          description: 卡片展示名称；恢复请求时保持原值及原始body。
+          maxLength: 128
+        quoteId:
+          type: string
+          description: 当前商户主体、产品、本金对应的有效报价ID。
+          minLength: 1
+          maxLength: 36
+      additionalProperties: false
+      required:
+      - cardProductId
+      - initialAmountMinor
+      - quoteId
+      description: 只使用列出的支持字段；不提供关联账户选择器、资金池、消费约束或账单地址。金额JSON须使用整数词法，不接受小数、指数或数字字符串。
+    RechargeRequest:
+      type: object
+      properties:
+        amountMinor:
+          type: integer
+          format: int64
+          description: 充值本金，USD分的正整数，须满足产品最低充值额。
+          maximum: 9223372036854775807
+          minimum: 1
+        quoteId:
+          type: string
+          description: 本卡、本次金额对应的有效充值报价ID。
+          minLength: 1
+          maxLength: 36
+      additionalProperties: false
+      required:
+      - amountMinor
+      - quoteId
+      description: 金额JSON须使用整数词法，不接受小数、指数或数字字符串。
+    CardActionRequest:
+      type: object
+      properties:
+        operationType:
+          type: string
+          description: 本次卡状态动作。
+          enum:
+          - FREEZE
+          - UNFREEZE
+          - CLOSE
+      additionalProperties: false
+      required:
+      - operationType
+      description: 每个独立动作使用自己的稳定幂等键；不支持ACTIVATE。
+    CardOperation:
+      type: object
+      properties:
+        operationId:
+          type: integer
+          format: int64
+          description: 操作ID；用于后续查询。
+          minimum: 1
+        issuanceTaskId:
+          type:
+          - integer
+          - 'null'
+          format: int64
+          description: 关联发卡任务ID，未关联时为空。
+        cardId:
+          type:
+          - integer
+          - 'null'
+          format: int64
+          description: 平台卡账户ID，开卡未完成时可能为空。
+        status:
+          type: string
+          description: 操作状态；只有SUCCEEDED算业务完成。
+          enum:
+          - PENDING
+          - PROCESSING
+          - SUCCEEDED
+          - FAILED
+        stage:
+          type: string
+          description: 进展阶段；不得仅凭阶段判断资金完成。
+          enum:
+          - READY
+          - SUBMITTING
+          - ACCEPTED
+          - PENDING
+          - UNKNOWN
+          - MANUAL_REVIEW
+          - SUCCEEDED
+          - FAILED
+        operationType:
+          type: string
+          description: 操作类型。
+          enum:
+          - CREATE
+          - RECHARGE
+          - FREEZE
+          - UNFREEZE
+          - CLOSE
+        amountMinor:
+          type: integer
+          format: int64
+          description: 本次本金，USD分；冻结/解冻/销卡通常为0。
+          minimum: 0
+          maximum: 9223372036854775807
+        feeMinor:
+          type: integer
+          format: int64
+          description: 本操作确认的服务费，USD分。
+          minimum: 0
+          maximum: 9223372036854775807
+        currency:
+          type: string
+          description: 币种。
+          enum:
+          - USD
+        errorCode:
+          type:
+          - string
+          - 'null'
+          description: 业务原因或证据码，成功时也可能有值；不要按非空判定失败。
+        terminal:
+          type: boolean
+          description: 是否已达到SUCCEEDED或FAILED终态。
+        recoveryRequired:
+          type: boolean
+          description: 是否需要保留原单并联系支持核对。
+        createdAt:
+          type: string
+          description: 操作创建时间。
+          format: date-time
+        updatedAt:
+          type: string
+          description: 最近状态观察时间。
+          format: date-time
+      required:
+      - operationId
+      - status
+      - stage
+      - operationType
+      - amountMinor
+      - feeMinor
+      - currency
+      - terminal
+      - recoveryRequired
+      - createdAt
+      - updatedAt
+      description: HTTP200/code字符串0仅表示本次接口调用成功。操作status=SUCCEEDED才表示本次卡片与资金处理完成；PENDING/PROCESSING继续有界查询原operationId。recoveryRequired=true时保留原单并联系支持核对，不自动释放或发起替代单。errorCode可能是成功证据码，不能非空即判失败。
+        查询响应没有fundingState字段。
+    CardBalance:
+      type: object
+      properties:
+        cardId:
+          type: integer
+          format: int64
+          description: 平台卡账户ID。
+          minimum: 1
+        balanceMinor:
+          type:
+          - integer
+          - 'null'
+          format: int64
+          description: 最近确认的卡余额，USD分；null表示未知，不能按0处理。
+          maximum: 9223372036854775807
+        currency:
+          type: string
+          description: 币种。
+          enum:
+          - USD
+        asOf:
+          type:
+          - string
+          - 'null'
+          description: 最近确认余额的时间，尚无可靠观察时为空。
+          format: date-time
+        stale:
+          type: boolean
+          description: true表示刷新失败或当前快照已过期；可能保留最近确认值。
+        errorCode:
+          type:
+          - string
+          - 'null'
+          description: 余额刷新原因码，可空。
+      required:
+      - cardId
+      - currency
+      - stale
+      description: 余额与主钱包分开；必须保留时点和时效信息。
+    Card:
+      type: object
+      properties:
+        id:
+          type: string
+          description: 平台卡账户ID；后续卡相关接口优先使用此ID。
+        issuingEnvironment:
+          type:
+          - string
+          - 'null'
+          description: 发卡环境标识，可能为空；按原值保存。
+        displayName:
+          type:
+          - string
+          - 'null'
+          description: 卡片展示名称。
+        panMasked:
+          type:
+          - string
+          - 'null'
+          description: 脱敏卡号。
+        panLast4:
+          type:
+          - string
+          - 'null'
+          description: 卡号后四位。
+        status:
+          type: string
+          description: 卡状态，如ACTIVE、FROZEN、CLOSED；按返回值处理。
+        cardProductId:
+          type: integer
+          format: int64
+          description: 卡产品ID。
+        cardProductName:
+          type:
+          - string
+          - 'null'
+          description: 卡产品名称。
+        platformCardGroupId:
+          type:
+          - integer
+          - 'null'
+          format: int64
+          description: 兼容卡组ID，未归属时为空。
+        channelDisplayName:
+          type: string
+          description: 不透明服务标识；用于原样保存和关联，不据此判断产品能力，不解析其组成。
+        channelCode:
+          type: string
+          description: 不透明服务标识；用于原样保存和关联，不据此判断产品能力，不解析其组成。
+        cardGroupName:
+          type:
+          - string
+          - 'null'
+          description: 兼容卡组名称。
+        cardGroupCode:
+          type:
+          - string
+          - 'null'
+          description: 兼容卡组代码。
+        cardGroupMemberOwned:
+          type: boolean
+          description: 是否属于该卡关联账户的自建卡组。
+        cardGroupLabel:
+          type: string
+          description: 资金归属的展示标签。
+        fundingMode:
+          type: string
+          description: 适用单卡余额产品时提供。
+          enum:
+          - SINGLE_CARD_BALANCE
+        supportsSpendingConstraints:
+          type: boolean
+          description: 适用单卡余额产品时提供，当前为false。
+          const: false
+        balanceMinor:
+          type:
+          - integer
+          - 'null'
+          format: int64
+          description: 可用的卡余额快照，USD分，null不是0；适用产品时提供。
+          maximum: 9223372036854775807
+        balanceAsOf:
+          type:
+          - string
+          - 'null'
+          description: 卡余额快照时点，可能为空。
+          format: date-time
+        balanceStale:
+          type: boolean
+          description: 卡余额快照是否需要刷新。
+        closeRefundStatus:
+          type:
+          - string
+          - 'null'
+          description: 销卡回款状态；AWAITING_CONFIRMATION表示待确认，RETURNED表示已登记回款；可能为空。
+        pendingAction:
+          type:
+          - string
+          - 'null'
+          description: 正在处理的卡操作类型，可能为空。
+        merchantCode:
+          type: string
+          description: 当前商户编码。
+      required:
+      - id
+      - status
+      - cardProductId
+      - channelDisplayName
+      - cardGroupMemberOwned
+      - cardGroupLabel
+      - merchantCode
+      description: 脱敏卡模型；单卡余额能力字段仅在适用卡产品时出现。未承诺currency或memberUserId字段。
+    SensitiveCard:
+      type: object
+      properties:
+        cardId:
+          type: string
+          description: 平台卡账户ID。
+        channelCode:
+          type: string
+          description: 不透明服务标识；用于原样保存和关联，不据此判断产品能力，不解析其组成。
+        pan:
+          type: string
+          description: 完整卡号；仅按需展示，不写日志或普通业务持久缓存。
+          writeOnly: false
+        cvv:
+          type: string
+          description: 卡安全码；禁止记录或持久缓存。
+          writeOnly: false
+        expMonth:
+          type: integer
+          format: int64
+          description: 到期月。
+          minimum: 1
+          maximum: 12
+        expYear:
+          type: integer
+          format: int64
+          description: 四位到期年份。
+          minimum: 1000
+          maximum: 9999
+        merchantCode:
+          type: string
+          description: 当前商户编码。
+      required:
+      - cardId
+      - channelCode
+      - pan
+      - cvv
+      - expMonth
+      - expYear
+      - merchantCode
+      description: 响应采用no-store；示例中的卡号和安全码是文字占位符。
+    Wallet:
+      type: object
+      properties:
+        walletId:
+          type: string
+          description: 钱包ID。
+        currency:
+          type: string
+          description: 钱包币种。
+        availableAmountMinor:
+          type: integer
+          format: int64
+          description: 本钱包当前可用余额，最小货币单位。
+          maximum: 9223372036854775807
+        availableAmount:
+          type: string
+          description: 可用余额的准确十进制展示值。
+        cardGroupId:
+          type: integer
+          format: int64
+          description: 0表示主钱包；正数表示兼容卡组钱包。
+        walletRole:
+          type: string
+          description: 钱包角色。
+          enum:
+          - MAIN
+          - CARD_GROUP
+        cardGroupName:
+          type:
+          - string
+          - 'null'
+          description: 卡组名称；主钱包为空。
+        merchantCode:
+          type: string
+          description: 当前商户编码。
+      required:
+      - walletId
+      - currency
+      - availableAmountMinor
+      - availableAmount
+      - cardGroupId
+      - walletRole
+      - merchantCode
+      description: 这里只提供可用余额，不提供冻结余额或总资产字段。
+    WalletLedgerEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          description: 账本记录ID，作为导入去重键。
+        occurredAt:
+          type: string
+          description: 业务发生时间。
+          format: date-time
+        amountMinor:
+          type: integer
+          format: int64
+          description: 带正负号的本钱包变动金额；0为注记，不代表无服务费。
+          maximum: 9223372036854775807
+        amount:
+          type: string
+          description: 变动金额的绝对值十进制展示值。
+        direction:
+          type: string
+          description: 变动方向，0金额归入CREDIT。
+          enum:
+          - CREDIT
+          - DEBIT
+        balanceAfterMinor:
+          type: integer
+          format: int64
+          description: 该行所属钱包的变动后余额，不是多个钱包合计。
+          maximum: 9223372036854775807
+        balanceAfter:
+          type: string
+          description: 该钱包变动后余额的十进制展示值。
+        entryType:
+          type:
+          - string
+          - 'null'
+          description: 记账类型；例如ISSUING_RESERVE预占、ISSUING_FEE_COMMITTED费用确认注记、ISSUING_RELEASE实际释放、ISSUING_CLOSE_RETURN实际销卡返还。
+        referenceType:
+          type:
+          - string
+          - 'null'
+          description: 关联业务类型；ISSUING_OPERATION表示发卡操作。
+        referenceId:
+          type:
+          - string
+          - 'null'
+          description: 关联业务ID；referenceType为ISSUING_OPERATION时关联operationId。
+        businessRef:
+          type:
+          - string
+          - 'null'
+          description: 业务引用，可能为空。
+        walletAccountId:
+          type: string
+          description: 该行所属钱包ID。
+        cardGroupId:
+          type: string
+          description: 卡组ID字符串；注意与钱包列表的数值字段类型不同。
+      required:
+      - id
+      - occurredAt
+      - amountMinor
+      - amount
+      - direction
+      - balanceAfterMinor
+      - balanceAfter
+      - walletAccountId
+      - cardGroupId
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: string
+          description: 本服务交易记录ID，使用该ID进行REST导入去重/更新。
+        memberUserId:
+          type: string
+          description: 交易归属关联账户ID。
+        cardAccountId:
+          type:
+          - string
+          - 'null'
+          description: 平台卡账户ID，历史记录可能为空。
+        txnType:
+          type: string
+          description: 可扩展的交易类型，如AUTHORIZATION、PURCHASE、REFUND等，不宜使用封闭枚举解析。
+        status:
+          type: string
+          description: 平台交易状态；授权与处理中记录不是最终支出。
+        amountMinor:
+          type: integer
+          format: int64
+          description: 带正负号的交易金额，最小货币单位。
+          maximum: 9223372036854775807
+        amount:
+          type: string
+          description: 交易金额绝对值的十进制展示值。
+        currency:
+          type: string
+          description: 交易币种。
+        occurredAt:
+          type: string
+          description: 业务发生时间，也是from/to筛选依据。
+          format: date-time
+        merchantReference:
+          type:
+          - string
+          - 'null'
+          description: 商户侧业务引用。
+        channelReference:
+          type:
+          - string
+          - 'null'
+          description: 服务侧交易引用，用于与通知关联。
+        narrative:
+          type:
+          - string
+          - 'null'
+          description: 交易摘要。
+        merchantDescription:
+          type:
+          - string
+          - 'null'
+          description: 受理商户描述。
+        channelCode:
+          type:
+          - string
+          - 'null'
+          description: 不透明服务标识；用于原样保存和关联，不据此判断产品能力，不解析其组成。
+        channelStatus:
+          type:
+          - string
+          - 'null'
+          description: 不透明的服务侧状态。
+        channelDetailedStatus:
+          type:
+          - string
+          - 'null'
+          description: 不透明的服务侧细状态。
+        feeSnapshotAvailable:
+          type: boolean
+          description: 是否有可用的历史费用快照；false不是零费用证明。
+        feeEstimateAvailable:
+          type: boolean
+          description: 是否有可用的当前规则估算；单卡余额交易当前不提供该估算。
+        feeTotalMinorSnapshot:
+          type:
+          - integer
+          - 'null'
+          format: int64
+          description: 历史手续费快照总额，可能为空。
+          maximum: 9223372036854775807
+        feeRuleSourceSnapshot:
+          type:
+          - string
+          - 'null'
+          description: 不透明服务标识；用于原样保存和关联，不据此判断产品能力，不解析其组成。
+        feeRuleIdSnapshot:
+          type:
+          - string
+          - 'null'
+          description: 历史费用规则引用。
+        feeRuleTableSnapshot:
+          type:
+          - string
+          - 'null'
+          description: 不透明服务标识；用于原样保存和关联，不据此判断产品能力，不解析其组成。
+        feeSummarySnapshot:
+          type:
+          - string
+          - 'null'
+          description: 历史费用摘要。
+        feeSnapshotFormatted:
+          type: string
+          description: 快照金额的十进制展示值，仅存在快照时提供。
+        feeSnapshotMinor:
+          type:
+          - integer
+          - 'null'
+          format: int64
+          description: 兼容费用快照金额。
+          maximum: 9223372036854775807
+        feeSnapshot:
+          type:
+          - string
+          - 'null'
+          description: 兼容费用快照展示值。
+        feeSnapshotSummary:
+          type:
+          - string
+          - 'null'
+          description: 兼容费用快照说明。
+        feeSnapshotRuleSource:
+          type:
+          - string
+          - 'null'
+          description: 不透明服务标识；用于原样保存和关联，不据此判断产品能力，不解析其组成。
+        feeSnapshotNote:
+          type:
+          - string
+          - 'null'
+          description: 快照补充说明。
+        feeEstimateNote:
+          type:
+          - string
+          - 'null'
+          description: 费用估算可用性说明。
+        feeSummary:
+          type:
+          - string
+          - 'null'
+          description: 适用费用规则摘要。
+        feeRuleSource:
+          type:
+          - string
+          - 'null'
+          description: 不透明服务标识；用于原样保存和关联，不据此判断产品能力，不解析其组成。
+        feeEstimateMinor:
+          type:
+          - integer
+          - 'null'
+          format: int64
+          description: 兼容费用估算金额。
+          maximum: 9223372036854775807
+        feeEstimate:
+          type:
+          - string
+          - 'null'
+          description: 兼容费用估算的十进制展示值。
+        feeEstimateVsSnapshotNote:
+          type:
+          - string
+          - 'null'
+          description: 当前估算与历史快照的差异说明。
+        merchantCode:
+          type: string
+          description: 当前商户编码。
+      required:
+      - id
+      - memberUserId
+      - txnType
+      - status
+      - amountMinor
+      - amount
+      - currency
+      - occurredAt
+      - feeSnapshotAvailable
+      - feeEstimateAvailable
+      - merchantCode
+      description: 接口读取已可见的历史记录，不自动拉取全部远端历史。费用字段缺失或不可用不代表无手续费；开卡/充值费用以报价和原操作为准。
+    CardGroup:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: 兼容卡组ID。
+          minimum: 1
+        code:
+          type: string
+          description: 卡组代码。
+        name:
+          type:
+          - string
+          - 'null'
+          description: 卡组名称。
+        memberOwned:
+          type: boolean
+          description: 该关联账户的自建卡组。
+          const: true
+        status:
+          type: string
+          description: 有效卡组状态。
+          enum:
+          - ACTIVE
+        merchantCode:
+          type: string
+          description: 当前商户编码。
+      required:
+      - id
+      - code
+      - memberOwned
+      - status
+      - merchantCode
+      description: 仅用于已有卡组查询；不包含余额，余额见wallets。
+    HistoricalIssuanceTask:
+      type: object
+      properties:
+        id:
+          type: string
+          description: 历史发卡任务ID。
+        status:
+          type: string
+          description: 历史任务状态，按实际返回值处理。
+        channelRequestId:
+          type:
+          - string
+          - 'null'
+          description: 不透明服务标识；用于原样保存和关联，不据此判断产品能力，不解析其组成。
+        merchantCode:
+          type: string
+          description: 当前商户编码。
+      required:
+      - id
+      - status
+      - merchantCode
+      description: 兼容历史任务查询，仅返回这些字段；不包含cardId，不能替代新操作查询。
+    CardGroupReleaseRequest:
+      type: object
+      properties:
+        currency:
+          type: string
+          description: 划出币种。
+          enum:
+          - USD
+        amount:
+          type: string
+          description: 正十进制金额字符串，按USD两位小数发送，如50.00；超过分精度会四舍五入至分，转换后的金额须大于0。
+          minLength: 1
+      required:
+      - currency
+      - amount
+      description: 已有卡组钱包向主钱包转回资金，不是卡充值或销卡回款。
+    WalletOperation:
+      type: object
+      properties:
+        id:
+          type: string
+          description: 钱包操作ID；不是发卡operationId。
+        reference:
+          type: string
+          description: 钱包业务引用。
+        status:
+          type: string
+          description: 钱包操作状态，如SUCCEEDED/FAILED/PROCESSING。
+        type:
+          type: string
+          description: 操作类型。
+          enum:
+          - CARD_GROUP_RELEASE
+        currency:
+          type: string
+          description: 币种。
+          enum:
+          - USD
+        amountMinor:
+          type: integer
+          format: int64
+          description: 划出本金，USD分。
+          maximum: 9223372036854775807
+          minimum: 1
+        amount:
+          type: string
+          description: 划出金额的十进制展示值。
+        failureReason:
+          type: string
+          description: 失败说明，仅有值时提供。
+        reversesOperationId:
+          type: string
+          description: 兼容的原钱包操作引用，仅有值时提供。
+        feeDisplayMode:
+          type: string
+          description: 费用展示模式标识。
+        feeRateBps:
+          type: integer
+          format: int64
+          description: 费用比例，基点。
+        feeFlatMinor:
+          type: integer
+          format: int64
+          description: 固定费用，USD分。
+          minimum: 0
+          maximum: 9223372036854775807
+        feeTotalMinor:
+          type: integer
+          format: int64
+          description: 展示的合计费用，USD分。
+          minimum: 0
+          maximum: 9223372036854775807
+        feeSnapshotMissing:
+          type: boolean
+          description: 是否缺少费用快照、展示值按当前规则计算。
+        feeSummary:
+          type: string
+          description: 费用摘要。
+        feeRuleSource:
+          type: string
+          description: 不透明服务标识；用于原样保存和关联，不据此判断产品能力，不解析其组成。
+        feeTotalDisplay:
+          type: string
+          description: 费用十进制展示值。
+        merchantCode:
+          type: string
+          description: 当前商户编码。
+      required:
+      - id
+      - reference
+      - status
+      - type
+      - currency
+      - amountMinor
+      - amount
+      - merchantCode
+      description: 成功响应可附带费用展示字段；不据此承诺全部卡组资金都可退出。未知结果用原请求恢复，不用card-operations路径查询本ID。
+    EffectiveFeeRule:
+      type: object
+      properties:
+        feeType:
+          type: string
+          description: 费用类型。
+          enum:
+          - CARD_ISSUANCE
+          - TRANSACTION
+          - REFUND
+          - MANUAL_TOP_UP
+          - WITHDRAWAL
+        source:
+          type: string
+          description: 规则适用范围标识。
+        ruleId:
+          type: string
+          description: 规则ID字符串。
+        ruleTable:
+          type: string
+          description: 不透明服务标识；用于原样保存和关联，不据此判断产品能力，不解析其组成。
+        calculationMode:
+          type: string
+          description: 计费方式。
+          enum:
+          - FIXED
+          - PERCENT
+          - FIXED_PLUS_PERCENT
+        currency:
+          type: string
+          description: 规则币种。
+        fixedFeeMinor:
+          type: string
+          description: 固定费最小单位整数字符串；注意不是JSON number。
+          pattern: ^[0-9]+$
+        minFeeMinor:
+          type: string
+          description: 最低费最小单位整数字符串。
+          pattern: ^[0-9]+$
+        ratePercent:
+          type:
+          - string
+          - 'null'
+          description: 百分比费率字符串，可能为空。
+        tierRef:
+          type:
+          - string
+          - 'null'
+          description: 兼容阶梯规则引用，可能为空。
+        appliesTo:
+          type:
+          - string
+          - 'null'
+          description: 费用适用范围标识，可能为空。
+        baseAmountMinor:
+          type: string
+          description: 本次计费基数的最小单位整数字符串。
+          pattern: ^-?[0-9]+$
+        foreignTransaction:
+          type: boolean
+          description: 本查询试算使用的外币交易标志；不是本接口请求参数。
+        quotedFeeMinor:
+          type: string
+          description: 本次估算手续费的最小单位整数字符串。
+          pattern: ^[0-9]+$
+        summary:
+          type: string
+          description: 费用说明。
+        merchantCode:
+          type: string
+          description: 当前商户编码。
+      required:
+      - feeType
+      - source
+      - ruleId
+      - ruleTable
+      - calculationMode
+      - currency
+      - fixedFeeMinor
+      - minFeeMinor
+      - baseAmountMinor
+      - foreignTransaction
+      - quotedFeeMinor
+      - summary
+      - merchantCode
+      description: 兼容费用查询。单卡余额产品开卡/充值的当前实际费用须使用对应报价，不能将本查询等同于卡内消费费率。
+    CardPage:
+      type: object
+      properties:
+        total:
+          type: integer
+          format: int64
+          description: 当前查询总条数。
+          minimum: 0
+        page:
+          type: integer
+          format: int64
+          description: 从0开始的页码。
+          minimum: 0
+        size:
+          type: integer
+          format: int64
+          description: 有效请求页长，最大100。
+          minimum: 1
+          maximum: 100
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Card'
+        merchantCode:
+          type: string
+          description: 当前商户编码。
+      required:
+      - total
+      - page
+      - size
+      - items
+      - merchantCode
+    TransactionPage:
+      type: object
+      properties:
+        total:
+          type: integer
+          format: int64
+          description: 当前查询总条数。
+          minimum: 0
+        page:
+          type: integer
+          format: int64
+          description: 从0开始的页码。
+          minimum: 0
+        pageSize:
+          type: integer
+          format: int64
+          description: 有效请求页长，最大200。
+          minimum: 1
+          maximum: 200
+        itemCount:
+          type: integer
+          format: int64
+          description: 本页实际记录数。
+          minimum: 0
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+        merchantCode:
+          type: string
+          description: 当前商户编码。
+      required:
+      - total
+      - page
+      - pageSize
+      - itemCount
+      - items
+      - merchantCode
+    WalletLedgerPage:
+      type: object
+      properties:
+        total:
+          type: integer
+          format: int64
+          description: 当前查询总条数。
+          minimum: 0
+        page:
+          type: integer
+          format: int64
+          description: 从0开始的页码。
+          minimum: 0
+        size:
+          type: integer
+          format: int64
+          description: 本页实际条数，不是下一页的请求页长。
+          minimum: 0
+          maximum: 200
+        sort:
+          type: string
+          description: 实际排序方向。
+          enum:
+          - asc
+          - desc
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/WalletLedgerEntry'
+        merchantCode:
+          type: string
+          description: 当前商户编码。
+      required:
+      - total
+      - page
+      - size
+      - sort
+      - items
+      - merchantCode
+      description: 所选关联账户USD主钱包与卡组钱包合并账本；按walletAccountId分别核对余额。
+    HealthResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          description: 成功业务码。
+          const: '0'
+        message:
+          type: string
+          description: 调用结果说明。
+        data:
+          $ref: '#/components/schemas/Health'
+        traceId:
+          type:
+          - string
+          - 'null'
+          description: 请求追踪标识，可能省略、为空或null。
+      required:
+      - code
+      - message
+      - data
+    FundingQuoteResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          description: 成功业务码。
+          const: '0'
+        message:
+          type: string
+          description: 调用结果说明。
+        data:
+          $ref: '#/components/schemas/FundingQuote'
+        traceId:
+          type:
+          - string
+          - 'null'
+          description: 请求追踪标识，可能省略、为空或null。
+      required:
+      - code
+      - message
+      - data
+    CardOperationResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          description: 成功业务码。
+          const: '0'
+        message:
+          type: string
+          description: 调用结果说明。
+        data:
+          $ref: '#/components/schemas/CardOperation'
+        traceId:
+          type:
+          - string
+          - 'null'
+          description: 请求追踪标识，可能省略、为空或null。
+      required:
+      - code
+      - message
+      - data
+    CardBalanceResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          description: 成功业务码。
+          const: '0'
+        message:
+          type: string
+          description: 调用结果说明。
+        data:
+          $ref: '#/components/schemas/CardBalance'
+        traceId:
+          type:
+          - string
+          - 'null'
+          description: 请求追踪标识，可能省略、为空或null。
+      required:
+      - code
+      - message
+      - data
+    CardResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          description: 成功业务码。
+          const: '0'
+        message:
+          type: string
+          description: 调用结果说明。
+        data:
+          $ref: '#/components/schemas/Card'
+        traceId:
+          type:
+          - string
+          - 'null'
+          description: 请求追踪标识，可能省略、为空或null。
+      required:
+      - code
+      - message
+      - data
+    SensitiveCardResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          description: 成功业务码。
+          const: '0'
+        message:
+          type: string
+          description: 调用结果说明。
+        data:
+          $ref: '#/components/schemas/SensitiveCard'
+        traceId:
+          type:
+          - string
+          - 'null'
+          description: 请求追踪标识，可能省略、为空或null。
+      required:
+      - code
+      - message
+      - data
+    CardPageResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          description: 成功业务码。
+          const: '0'
+        message:
+          type: string
+          description: 调用结果说明。
+        data:
+          $ref: '#/components/schemas/CardPage'
+        traceId:
+          type:
+          - string
+          - 'null'
+          description: 请求追踪标识，可能省略、为空或null。
+      required:
+      - code
+      - message
+      - data
+    WalletResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          description: 成功业务码。
+          const: '0'
+        message:
+          type: string
+          description: 调用结果说明。
+        data:
+          $ref: '#/components/schemas/Wallet'
+        traceId:
+          type:
+          - string
+          - 'null'
+          description: 请求追踪标识，可能省略、为空或null。
+      required:
+      - code
+      - message
+      - data
+    WalletLedgerPageResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          description: 成功业务码。
+          const: '0'
+        message:
+          type: string
+          description: 调用结果说明。
+        data:
+          $ref: '#/components/schemas/WalletLedgerPage'
+        traceId:
+          type:
+          - string
+          - 'null'
+          description: 请求追踪标识，可能省略、为空或null。
+      required:
+      - code
+      - message
+      - data
+    TransactionPageResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          description: 成功业务码。
+          const: '0'
+        message:
+          type: string
+          description: 调用结果说明。
+        data:
+          $ref: '#/components/schemas/TransactionPage'
+        traceId:
+          type:
+          - string
+          - 'null'
+          description: 请求追踪标识，可能省略、为空或null。
+      required:
+      - code
+      - message
+      - data
+    WalletOperationResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          description: 成功业务码。
+          const: '0'
+        message:
+          type: string
+          description: 调用结果说明。
+        data:
+          $ref: '#/components/schemas/WalletOperation'
+        traceId:
+          type:
+          - string
+          - 'null'
+          description: 请求追踪标识，可能省略、为空或null。
+      required:
+      - code
+      - message
+      - data
+    HistoricalIssuanceTaskResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          description: 成功业务码。
+          const: '0'
+        message:
+          type: string
+          description: 调用结果说明。
+        data:
+          $ref: '#/components/schemas/HistoricalIssuanceTask'
+        traceId:
+          type:
+          - string
+          - 'null'
+          description: 请求追踪标识，可能省略、为空或null。
+      required:
+      - code
+      - message
+      - data
+    EffectiveFeeRuleResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          description: 成功业务码。
+          const: '0'
+        message:
+          type: string
+          description: 调用结果说明。
+        data:
+          $ref: '#/components/schemas/EffectiveFeeRule'
+        traceId:
+          type:
+          - string
+          - 'null'
+          description: 请求追踪标识，可能省略、为空或null。
+      required:
+      - code
+      - message
+      - data
+    ProductsResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          description: 成功业务码。
+          const: '0'
+        message:
+          type: string
+          description: 调用结果说明。
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Product'
+        traceId:
+          type:
+          - string
+          - 'null'
+          description: 请求追踪标识，可能省略、为空或null。
+      required:
+      - code
+      - message
+      - data
+    WalletsResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          description: 成功业务码。
+          const: '0'
+        message:
+          type: string
+          description: 调用结果说明。
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Wallet'
+        traceId:
+          type:
+          - string
+          - 'null'
+          description: 请求追踪标识，可能省略、为空或null。
+      required:
+      - code
+      - message
+      - data
+    CardGroupsResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          description: 成功业务码。
+          const: '0'
+        message:
+          type: string
+          description: 调用结果说明。
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardGroup'
+        traceId:
+          type:
+          - string
+          - 'null'
+          description: 请求追踪标识，可能省略、为空或null。
+      required:
+      - code
+      - message
+      - data
+    OperationEventData:
+      type: object
+      properties:
+        operationId:
+          type: integer
+          format: int64
+          description: 操作ID；用于后续查询。
+          minimum: 1
+        issuanceTaskId:
+          type:
+          - integer
+          - 'null'
+          format: int64
+          description: 关联发卡任务ID，未关联时为空。
+        cardId:
+          type:
+          - integer
+          - 'null'
+          format: int64
+          description: 平台卡账户ID，开卡未完成时可能为空。
+        status:
+          type: string
+          description: 操作状态；只有SUCCEEDED算业务完成。
+          enum:
+          - PENDING
+          - PROCESSING
+          - SUCCEEDED
+          - FAILED
+        stage:
+          type: string
+          description: 进展阶段；不得仅凭阶段判断资金完成。
+          enum:
+          - READY
+          - SUBMITTING
+          - ACCEPTED
+          - PENDING
+          - UNKNOWN
+          - MANUAL_REVIEW
+          - SUCCEEDED
+          - FAILED
+        operationType:
+          type: string
+          description: 操作类型。
+          enum:
+          - CREATE
+          - RECHARGE
+          - FREEZE
+          - UNFREEZE
+          - CLOSE
+        amountMinor:
+          type: integer
+          format: int64
+          description: 本次本金，USD分；冻结/解冻/销卡通常为0。
+          minimum: 0
+          maximum: 9223372036854775807
+        feeMinor:
+          type: integer
+          format: int64
+          description: 本操作确认的服务费，USD分。
+          minimum: 0
+          maximum: 9223372036854775807
+        currency:
+          type: string
+          description: 币种。
+          enum:
+          - USD
+        errorCode:
+          type:
+          - string
+          - 'null'
+          description: 业务原因或证据码，成功时也可能有值；不要按非空判定失败。
+        terminal:
+          type: boolean
+          description: 是否已达到SUCCEEDED或FAILED终态。
+        recoveryRequired:
+          type: boolean
+          description: 是否需要保留原单并联系支持核对。
+        createdAt:
+          type: string
+          description: 操作创建时间。
+          format: date-time
+        updatedAt:
+          type: string
+          description: 最近状态观察时间。
+          format: date-time
+        fundingState:
+          type: string
+          description: 本次资金状态；HELD预占、COMMITTED已确认、RELEASED已释放、NONE无预占。
+          enum:
+          - HELD
+          - COMMITTED
+          - RELEASED
+          - NONE
+      required:
+      - operationId
+      - status
+      - stage
+      - operationType
+      - amountMinor
+      - feeMinor
+      - currency
+      - terminal
+      - recoveryRequired
+      - createdAt
+      - updatedAt
+      - fundingState
+      description: 操作通知数据，比操作查询多fundingState。
+    TransactionEventData:
+      type: object
+      properties:
+        transactionId:
+          type: string
+          description: 通知交易标识，格式txn_{channelReference}；不同于REST交易记录id。
+          pattern: ^txn_.*$
+        cardAccountId:
+          type:
+          - integer
+          - 'null'
+          format: int64
+          description: 平台卡账户ID，历史记录可能为空。
+        txnType:
+          type: string
+          description: 交易类型；此通知不包含实时授权阶段。
+        status:
+          type: string
+          description: 本次交易状态。
+        amountMinor:
+          type: integer
+          format: int64
+          description: 交易最小单位金额。
+          maximum: 9223372036854775807
+        currency:
+          type: string
+          description: 币种。
+        occurredAt:
+          type: string
+          description: 交易业务发生时间。
+          format: date-time
+        merchantReference:
+          type:
+          - string
+          - 'null'
+          description: 商户业务引用。
+        channelReference:
+          type:
+          - string
+          - 'null'
+          description: 用于关联交易的服务侧引用。
+      required:
+      - transactionId
+      - txnType
+      - status
+      - amountMinor
+      - currency
+      - occurredAt
+      description: 此通知覆盖入账/清算等后续阶段，不承诺实时授权通知；收到后补查REST并按REST记录id更新本地交易。
+    WalletDepositEventData:
+      type: object
+      properties:
+        depositId:
+          type: integer
+          format: int64
+          description: 到账记录ID。
+        txHash:
+          type:
+          - string
+          - 'null'
+          description: 链上转账哈希。
+        chainId:
+          type: integer
+          format: int64
+          description: 网络标识。
+        chainName:
+          type: string
+          description: 网络名称，仅可用时提供。
+        chainSymbol:
+          type: string
+          description: 网络简称，仅可用时提供。
+        fromAddress:
+          type:
+          - string
+          - 'null'
+          description: 转出地址。
+        toAddress:
+          type:
+          - string
+          - 'null'
+          description: 接收地址。
+        amountMinor:
+          type: integer
+          format: int64
+          description: 记入钱包的USD分金额。
+          maximum: 9223372036854775807
+        amount:
+          type: string
+          description: 到账金额绝对值展示值。
+        currency:
+          type: string
+          description: 入账币种。
+          enum:
+          - USD
+        amountRaw:
+          type:
+          - string
+          - 'null'
+          description: 原始资产数量字符串。
+        payCurrencyId:
+          type: integer
+          format: int64
+          description: 资产标识。
+        payRechargeId:
+          type: integer
+          format: int64
+          description: 入金业务引用。
+        channelCode:
+          type:
+          - string
+          - 'null'
+          description: 不透明服务标识；用于原样保存和关联，不据此判断产品能力，不解析其组成。
+        walletOperationId:
+          type: string
+          description: 对应钱包操作ID字符串。
+        walletId:
+          type: string
+          description: 到账钱包ID字符串，仅查到时提供。
+        occurredAt:
+          type: string
+          description: 入账业务时间。
+          format: date-time
+      required:
+      - depositId
+      - chainId
+      - amountMinor
+      - amount
+      - currency
+      - payCurrencyId
+      - payRechargeId
+      - walletOperationId
+      - occurredAt
+      description: 按开通范围提供的数币自动充值到账事件，不覆盖人工入金，也不是全部钱包变动通知。
+    CardBindingEventData:
+      type: object
+      properties:
+        memberUserId:
+          type: integer
+          format: int64
+          description: 关联账户ID。
+        inboundId:
+          type: integer
+          format: int64
+          description: 通知业务引用。
+        walletId:
+          type: integer
+          format: int64
+          description: 关联钱包ID数值，仅可用时提供；与到账通知中字符串类型不同。
+        cardAccountId:
+          type: integer
+          format: int64
+          description: 平台卡账户ID，仅确认时提供。
+        bindingCode:
+          type: string
+          description: 绑卡验证码，敏感值；不写一般日志，不以此事件推断所有卡产品支持验证码。
+        expiresAt:
+          type: string
+          description: 验证码到期时间。
+          format: date-time
+        channelCode:
+          type: string
+          description: 不透明服务标识；用于原样保存和关联，不据此判断产品能力，不解析其组成。
+      required:
+      - memberUserId
+      - inboundId
+      - bindingCode
+      - expiresAt
+      - channelCode
+      description: 仅适用卡产品按开通范围提供；不能承诺当前所有新发卡均产生此通知。
+    IssuingOperationEvent:
+      type: object
+      properties:
+        eventType:
+          type: string
+          description: 通知事件类型。
+          const: merchant.webhook.issuing.operation.updated
+        eventId:
+          type: string
+          description: 事件唯一ID，与X-Vcc-Event-Id相同。
+        occurredAt:
+          type: string
+          description: 通知事件时间。
+          format: date-time
+        merchantCode:
+          type:
+          - string
+          - 'null'
+          description: 商户编码，部分通知可能为空或省略。
+        data:
+          $ref: '#/components/schemas/OperationEventData'
+      required:
+      - eventType
+      - eventId
+      - occurredAt
+      - data
+    TransactionEvent:
+      type: object
+      properties:
+        eventType:
+          type: string
+          description: 通知事件类型。
+          const: merchant.webhook.transaction.updated
+        eventId:
+          type: string
+          description: 事件唯一ID，与X-Vcc-Event-Id相同。
+        occurredAt:
+          type: string
+          description: 通知事件时间。
+          format: date-time
+        merchantCode:
+          type:
+          - string
+          - 'null'
+          description: 商户编码，部分通知可能为空或省略。
+        data:
+          $ref: '#/components/schemas/TransactionEventData'
+      required:
+      - eventType
+      - eventId
+      - occurredAt
+      - data
+    WalletDepositEvent:
+      type: object
+      properties:
+        eventType:
+          type: string
+          description: 通知事件类型。
+          const: merchant.webhook.wallet.deposit.posted
+        eventId:
+          type: string
+          description: 事件唯一ID，与X-Vcc-Event-Id相同。
+        occurredAt:
+          type: string
+          description: 通知事件时间。
+          format: date-time
+        merchantCode:
+          type:
+          - string
+          - 'null'
+          description: 商户编码，部分通知可能为空或省略。
+        data:
+          $ref: '#/components/schemas/WalletDepositEventData'
+      required:
+      - eventType
+      - eventId
+      - occurredAt
+      - data
+    CardBindingEvent:
+      type: object
+      properties:
+        eventType:
+          type: string
+          description: 通知事件类型。
+          const: merchant.webhook.wallet.card_binding.verification_code
+        eventId:
+          type: string
+          description: 事件唯一ID，与X-Vcc-Event-Id相同。
+        occurredAt:
+          type: string
+          description: 通知事件时间。
+          format: date-time
+        merchantCode:
+          type:
+          - string
+          - 'null'
+          description: 商户编码，部分通知可能为空或省略。
+        data:
+          $ref: '#/components/schemas/CardBindingEventData'
+      required:
+      - eventType
+      - eventId
+      - occurredAt
+      - data
+  responses:
+    BadRequest:
+      description: 参数错误；还可能返回40003缺幂等键、40012时间格式、40020资格未开通、40021产品不可用、40030余额不足、40031币种不支持、40032/40033费用规则不可用。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: '40001'
+            message: 参数错误
+            traceId: trace_example
+    Unauthorized:
+      description: 凭证或签名无效；40110凭证、40111签名、40112时钟偏差、40113接口未开放。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: '40111'
+            message: 凭证或签名无效
+            traceId: trace_example
+    Forbidden:
+      description: 商户/账户/卡归属或权限不符，能力未开通；40314表示凭证类型不符，40302表示风险规则拒绝。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: '40301'
+            message: 商户/账户/卡归属或权限不符，能力未开通
+            traceId: trace_example
+    NotFound:
+      description: 资源不存在或不在当前可见范围；可能返回40402卡不存在、40403钱包不存在。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: '40401'
+            message: 资源不存在或不在当前可见范围
+            traceId: trace_example
+    Conflict:
+      description: 40901请求处理中或状态冲突，40904同键异请求，40905卡状态不允许；已知原单继续查询。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: '40904'
+            message: 40901请求处理中或状态冲突，40904同键异请求，40905卡状态不允许
+            traceId: trace_example
+    QuoteConflict:
+      description: 报价缺失、不匹配、失效或费用变化；仅此明确业务码表示本次未受理且未预占。其他409仍须恢复原单。重新报价确认后用新请求提交；原40931响应可能缓存。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: '40931'
+            message: 报价缺失、不匹配、失效或费用变化
+            traceId: trace_example
+    RateLimited:
+      description: 请求过于频繁，退避后重试；不承诺Retry-After响应头。资金请求仍保持原幂等键与原始字节。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: '42902'
+            message: 请求过于频繁，退避后重试
+            traceId: trace_example
+    ServiceError:
+      description: 服务异常或暂时不可用；写请求结果不明时保留原单，不能直接重复创建。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: '50001'
+            message: 服务异常或暂时不可用
+            traceId: trace_example
+    ServiceUnavailable:
+      description: 服务暂时不可用；退避后重试。写请求结果不明时先恢复原单，保持原幂等键与原始请求字节，不换键重复提交。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: '50001'
+            message: 服务暂时不可用
+            traceId: trace_example

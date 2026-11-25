@@ -20,7 +20,7 @@ main{min-width:0;padding:2.2rem clamp(1.5rem,4vw,4.5rem) 5rem;max-width:1180px}.
 </head>
 <body>
 <a class="skip" href="#content">跳转到正文</a>
-<header class="bar"><a class="brand" href="index.html">发卡 Open API<span class="version">API v1</span></a></header>
+<header class="bar"><a class="brand" href="index.html">发卡 Open API<span class="version">API v1</span></a><nav class="downloads" aria-label="下载文档"><a href="issuing-api.md" download>Markdown</a><a href="openapi.yaml" download>OpenAPI YAML</a><a href="openapi.json" download>OpenAPI JSON</a></nav></header>
 <div class="layout">
 <aside class="sidebar"><p class="nav-title">接口参考 / REFERENCE</p><nav aria-label="文档目录"><div class="toc">
 <ul>
@@ -181,6 +181,7 @@ main{min-width:0;padding:2.2rem clamp(1.5rem,4vw,4.5rem) 5rem;max-width:1180px}.
 </div>
 </nav></details><article><h1 id="open-api">发卡 Open API 接口文档</h1>
 <p>API 版本：<code>v1</code> · 更新日期：2026-11-17 · 传输格式：HTTPS / JSON</p>
+<p><a href="index.html">HTML 文档</a> · <a href="partner-open-api-channel-spec.html">兼容入口</a> · <a href="issuing-api.md">Markdown 下载</a> · <a href="openapi.yaml">OpenAPI YAML</a> · <a href="openapi.json">OpenAPI JSON</a></p>
 <h2 id="overview">1. 概述与接入准备</h2>
 <p>本接口供商户服务端接入产品查询、单卡余额开卡、卡充值、卡状态管理、余额、交易历史、钱包账本和事件通知。所有资源均受商户归属及已开通权限限制。</p>
 <p>本文使用 <code>https://api.example.com</code> 作为<strong>示例地址</strong>，不是实际服务地址。请将示例中的 <code>{BASE}</code> 替换为接入开通资料提供的 API 根地址，不带末尾 <code>/</code>。文档站地址不等于 API 地址。</p>
